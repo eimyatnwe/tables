@@ -1,0 +1,29 @@
+.orderPadding {
+	position: relative;
+	top: 3px;
+}
+
+.close-scrollbar:has(app-report-contract)::-webkit-scrollbar-thumb {
+	background-color: #DFDFE8 !important;
+	border-radius: 10px !important;
+}
+.close-scrollbar:has(app-report-contract)::-webkit-scrollbar{
+	display: block;
+	overflow: visible !important;
+	width: 6px;
+	background-color:white;
+}
+.contentRight:has(app-report-contract){
+	overflow: visible !important;
+}
+.close-scrollbar:has(app-report-contract)::-webkit-scrollbar-thumb:hover {
+	background-color: #BCBCC8 !important;
+}
+.container-micro-frontend-report {
+	min-height: 100%;
+	height: auto;
+}
+
+.report-contract{
+	height: auto !important;
+}

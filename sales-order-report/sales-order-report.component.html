@@ -1,0 +1,141 @@
+<div>
+	<div class="report-content-filter">
+		<div class="report-search" id="search">
+			<go5-search
+				[category]="'primary'"
+				[(ngModel)]="filter.search"
+				[placeholder]="'common_search' | sPhrase | async"
+				(ngModelChange)="onSearch('search', $event)"
+			>
+			</go5-search>
+		</div>
+		<div class="report-content-toolbar">
+			<go5-dropdown-filter
+				#filterRef
+				[dataSource]="dataSourceFilter"
+				[allowLocaliza]="true"
+				[value]="filter"
+				[maxWidth]="'150px'"
+				[category]="'primary'"
+				[mode]="'overflow-popup'"
+				[size]="'medium'"
+				[popupWidth_px]="276"
+				(changed)="onSelectedFilter($event)"
+				(clear)="onClearAll($event)"
+				(filtering)="onFiltering($event)"
+			>
+			</go5-dropdown-filter>
+		</div>
+
+		<div class="report-additional-filter">
+			<app-date-range
+				[reportType]="'sales-order'"
+				*ngIf="typeCalendar !== 'MonthOnly'"
+				(selected)="setFilter($event)"
+				[value]="dateRang"
+				[filterSize]="'medium'"
+				[maxWidth]="'240px'"
+				[category]="'primary'"
+			></app-date-range>
+		</div>
+		<div class="other-tool">
+			<div class="vertical-line-toolbar"></div>
+
+			<!-- Export -->
+			<div class="report-export">
+				<div *ngIf="btnExport" class="spinner-border spinner-border-sm text-success" role="status">
+					<span class="sr-only">Loading...</span>
+				</div>
+				<button *ngIf="!btnExport && canExportReport" class="export-button" type="button">
+					<i (click)="exportData()" class="font24 icon-Excel-export pointer"></i>
+				</button>
+				<div *ngIf="typeExportFile" class="history-box">
+					<i
+						(click)="openHistoryLog()"
+						class="gf-icon-empeo-history"
+						data-testid="button_history_log"
+						go5-tooltip="History"
+						go5-tooltip-placement="bottom"
+					></i>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Summary  Report -->
+<app-summary-report [columns]="summaryColumm" [data]="summary" [loading]="loadingSummary"></app-summary-report>
+
+<!-- Table  Report -->
+<div #SOTable class="tb-report sales-order-report summary-header sales-order-report-table">
+	<ng-container>
+		<app-table-standard
+            [data]="data"
+            [columns]="columns"
+            [isLoading]="isLoading()"
+            (sorted)="sortingBy($event)"
+            (selected)="app.openSalesOrderURL($event.saleOrderNo ? $event.saleOrderNo : $event.saleOrderDetails, false, true)"
+            stickyHeaderTop="60px"
+			(reachedBottom)="onReachedBottom()"
+        />
+		<ng-template #customerName let-item>
+            <td
+                class = "{{ item.customerId ? 'text-link-primary' : '' }}"
+                style="min-width: 230px; max-width: 230px; width: 230px;"
+                (click)="openCustomerDetailDialog(item.customerId, $event)"
+            >
+            <span [hoverCard]="item.customerId" [type]="'customer'">
+                {{ item.customerName || '' }}
+            </span>
+            </td>
+        </ng-template>
+
+		<ng-template #orderDetails let-item>
+			<td class="col-custom-body order-details-cell" style="min-width: 480px; width: 480px; max-width: 480px;">
+				<ng-container *ngIf="item.saleOrderDetails?.length > 0; else emptyState">
+				<!-- First item -->
+						<div>
+							<span>{{ item.saleOrderDetails[0].partName | default: 'str' }} - 
+									{{ item.saleOrderDetails[0].qty || 0 }} {{ item.saleOrderDetails[0].unit }}</span>
+						</div>
+				<!-- Additional items -->
+						<ng-container *ngIf="item.saleOrderDetails?.length > 1">
+							<div *ngFor="let order of item.saleOrderDetails.slice(1)">
+								<span>{{ order.partName | default: 'str' }} - {{ order.qty || 0 }} {{ order.unit }}</span>
+							</div>
+						</ng-container>
+					</ng-container>
+				</td>
+		</ng-template>
+
+		<ng-template #totalPrice let-item>
+			<td go5-table-cell class="talign-right" style="width: 160px; min-width: 160px; max-width: 160px;">
+				<ng-template [ngIf]="item.saleOrderDetails?.length > 0"> 
+					<!-- First item price -->
+					<div>
+						{{
+							item.saleOrderDetails[0].totalPrice > 0
+								? item?.currency?.currencySymbol + (item.saleOrderDetails[0].totalPrice | number: '0.2-2')
+								: ''
+						}}
+					</div>
+					<!-- Additional items prices -->
+					<ng-template [ngIf]="item.saleOrderDetails?.length > 1">
+						<div *ngFor="let order of item.saleOrderDetails.slice(1)">
+							{{
+								order.totalPrice > 0
+									? item?.currency?.currencySymbol + (order.totalPrice | number: '0.2-2')
+									: ''
+							}}
+						</div>
+					</ng-template>
+				</ng-template>
+			</td>
+		</ng-template>
+		<div *ngIf="!isLoading && (data === null || data?.length === 0)">
+			<div class="emptyBlock emptyBlock-tab" style="height: 40vh"></div>
+		</div>
+	</ng-container>
+</div>
+<app-attachment-modal #attachmentModal></app-attachment-modal>
+<app-history-log #dialog></app-history-log>

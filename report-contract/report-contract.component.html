@@ -1,0 +1,243 @@
+<div class="report-content-filter">
+	<div class="report-search">
+		<go5-search
+			[category]="'primary'"
+			[(ngModel)]="filter.search"
+			[placeholder]="'common_search' | sPhrase | async"
+			(ngModelChange)="onSearch('search', $event)"
+		>
+		</go5-search>
+	</div>
+	<div class="report-content-toolbar">
+		<go5-dropdown-filter
+			#filterRef
+			[dataSource]="dataSourceFilter"
+			[allowLocaliza]="true"
+			[value]="filter"
+			[maxWidth]="'150px'"
+			[category]="'primary'"
+			[mode]="'overflow-popup'"
+			[size]="'medium'"
+			[popupWidth_px]="276"
+			(changed)="onSelectedFilter($event)"
+			(clear)="onClearAll($event)"
+			(filtering)="onFiltering($event)"
+		>
+		</go5-dropdown-filter>
+	</div>
+
+	<div class="report-additional-filter">
+		<app-date-range
+			[reportType]="'contract'"
+			(selected)="setFilter($event)"
+			[value]="dateRang"
+			[filterSize]="'medium'"
+			[maxWidth]="'240px'"
+			[category]="'primary'"
+		></app-date-range>
+	</div>
+
+	<!-- Export -->
+	<div class="other-tool">
+		<div class="vertical-line-toolbar"></div>
+		<div class="report-export">
+			<div *ngIf="btnExport" class="spinner-border spinner-border-sm text-success" role="status">
+				<span class="sr-only">Loading...</span>
+			</div>
+			<button *ngIf="!btnExport && canExportReport" class="export-button" type="button">
+				<i (click)="exportData()" class="font24 icon-Excel-export pointer"></i>
+			</button>
+			<div *ngIf="typeExportFile" class="history-box">
+				<i
+					(click)="openHistoryLog()"
+					class="gf-icon-empeo-history"
+					data-testid="button_history_log"
+					go5-tooltip="History"
+					go5-tooltip-placement="bottom"
+				></i>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- Summary  Report -->
+<app-summary-report
+	[columns]="summaryColumm"
+	[data]="summary"
+	[loading]="isInitialLoading || isSummaryLoading()"
+></app-summary-report>
+
+<div #SOTable class="tb-report quotation-report summary-header report-contract">
+		<app-table-standard
+			#table
+			[data]="data"
+            [columns]="columns"
+            [isLoading]="isLoading()"
+            (sorted)="sortingBy($event)"
+            (selected)="app.openContractURL($event.contractNo ? $event.contractNo : $event.contractId, false, true)"
+            stickyHeaderTop="60px"
+		/>
+
+		<ng-template #customerCell let-item>
+			<td
+				class="{{ item.customerId ? 'text-link-primary' : '' }}"
+				style="min-width: 190px; width: 190px; max-width: 190px;"
+				(click)="openCustomerDetailDialog($event, item.customerId)"
+			>
+				<span [hoverCard]="item.customerId" [type]="'customer'">
+					{{ item.customerName || '' }}
+				</span>
+			</td>
+		</ng-template>
+		<ng-template #employeeCell let-item>
+			<td
+				class="{{ item.fullname ? 'text-link-primary' : '' }}"
+				style="min-width: 180px; width: 180px; max-width: 180px;"
+				(click)="app.openEmployeeURL(item.ownerUserId, false)"
+			>
+				<span [hoverCard]="item.ownerUserId" [openClick]="true" [type]="'employee'">
+					{{ CurrentAppLanguage === 'en-GB' ? item.fullnameEN : item.fullname || '' }}
+				</span>
+			</td>
+		</ng-template>
+		<ng-template #frequencyCell let-item>
+			<td [style.width]="'200px'" [style.min-width]="'200px'" [style.max-width]="'200px'">
+				<span *ngIf="item.frequency && item.frequency !== FrequencyType.None">
+					{{ 'common_frequency_' + FrequencyType[item.frequency] | phrase | async }} ({{
+						item['numberOfTimes']
+					}}
+					{{ 'common_frequency_unit_' + FrequencyType[item.frequency] | phrase | async }})
+				</span>
+				<span *ngIf="!item.frequency || item.frequency === FrequencyType.None">
+					{{ 'common_frequency_none' | phrase | async }}
+				</span>
+			</td>
+		</ng-template>
+
+		<!-- <go5-table #table class="table-content" [category]="'secondary'" [hasBorderRadius]="false" [stickyMode]="'sticky'">
+			<ng-template #headerTemplate>
+				<tr>
+					<ng-template [ngForOf]="columns" let-c let-i="index" ngFor>
+						<th
+							*ngIf="c.isActive"
+							class="go5-table-header-text {{ c.cssClass }}"
+							[ngClass]="{
+								'column-order-details': c.column === 'orderDetails'
+							}"
+							[style.width]="c.width"
+							[ngStyle]="{
+								'min-width': c.width
+							}"
+						>
+							{{ c.columnName | phrase | async }}
+
+							<s-order-icon
+								*ngIf="c.orderable"
+								class="orderPadding"
+								[key]="c.orderKey[0]"
+								[orderBy]="c.sortType"
+								(change)="sortingBy($event, c)"
+							></s-order-icon>
+						</th>
+					</ng-template>
+				</tr>
+			</ng-template>
+
+			<ng-template #contentTemplate>
+				<tbody go5-table-body-content>
+					<ng-template [ngForOf]="data" let-i="index" let-item ngFor>
+						<tr
+							go5-table-row
+							(click)="app.openContractURL(item.contractNo ? item.contractNo : item.contractId)"
+							class="pointer"
+						>
+							<ng-template [ngForOf]="columns" let-c let-j="index" ngFor>
+								<ng-template [ngIf]="c.isActive">
+									<td go5-table-cell *ngIf="c.type === 'date'" [style.width]="c.width">
+										{{ item[c.column] | sDate: DateFormat.dateTimeShort | async }}
+									</td>
+									<td go5-table-cell *ngIf="c.type === 'string'" [style.width]="c.width">
+										{{ item[c.column] | default: 'str' }}
+									</td>
+									<td go5-table-cell *ngIf="c.type === 'number'" [style.width]="c.width">
+										{{ item[c.column] || '-' }}
+									</td>
+									<td
+										go5-table-cell
+										*ngIf="c.type === 'employee'"
+										[hoverCard]="item.ownerUserId"
+										[openClick]="true"
+										class="{{ item[c.column] ? 'text-link-primary' : '' }}"
+										[style.width]="c.width"
+									>
+										{{ item[c.column] || '-' }}
+									</td>
+									<td
+										go5-table-cell
+										*ngIf="c.type === 'customer'"
+										[hoverCard]="item.customerId"
+										(click)="openCustomerDetailDialog($event, item.customerId)"
+										[type]="'customer'"
+										class="{{ item[c.column] ? 'text-link-primary' : '' }}"
+										[style.width]="c.width"
+									>
+										{{ item[c.column] || '-' }}
+									</td>
+									<td go5-table-cell *ngIf="c.type === 'status'" class="text-center" [style.width]="c.width">
+										<go5-status
+											[type]="STATUS_NAME.Contract"
+											[label]="getContractStatus(item.statusId, item.statusTypeId) | phrase | async"
+											[statusId]="getStatusId(item.statusId, item.statusTypeId)"
+										>
+										</go5-status>
+									</td>
+									<td go5-table-cell *ngIf="c.type === 'frequency'" [style.width]="c.width">
+										<span *ngIf="item[c.column] && item[c.column] !== FrequencyType.None">
+											{{ 'common_frequency_' + FrequencyType[item[c.column]] | phrase | async }} ({{
+												item['numberOfTimes']
+											}}
+											{{ 'common_frequency_unit_' + FrequencyType[item[c.column]] | phrase | async }})
+										</span>
+										<span *ngIf="!item[c.column] || item[c.column] === FrequencyType.None">
+											{{ 'common_frequency_none' | phrase | async }}
+										</span>
+									</td>
+									<td go5-table-cell *ngIf="c.type === 'baht'" class="talign-right" [style.width]="c.width">
+										{{ item[c.column] > 0 ? (item[c.column] | sCurrency) : '-' }}
+									</td>
+
+									<td go5-table-cell *ngIf="c.type === 'attachment'" style="min-width: 380px">
+										<ul class="none-listStyle attactment-list no-margin no-padding">
+											<li *ngFor="let att of item.attachments">
+												<img
+													(click)="attachmentModal.modalBtnClickAtt(att, item.attachments)"
+													[src]="att | attachmentSecure | async"
+													tooltipAtm="{{ att.filename }}"
+												/>
+											</li>
+										</ul>
+									</td>
+								</ng-template>
+							</ng-template>
+						</tr>
+					</ng-template>
+
+					<ng-container *ngIf="isLoading() || isInitialLoading">
+						<tr go5-table-row *ngFor="let data of counter(10)">
+							<ng-template ngFor [ngForOf]="columns" let-col>
+								<td go5-table-cell *ngIf="col.isActive" [ngClass]="col.cssClass" [ngStyle]="{ width: col.width }">
+									<ngx-skeleton-loader [theme]="{ margin: '0px' }"> </ngx-skeleton-loader>
+								</td>
+							</ng-template>
+						</tr>
+					</ng-container>
+				</tbody>
+			</ng-template>
+		</go5-table> -->
+
+		<div *ngIf="!isLoading() && !isInitialLoading && (data === null || data?.length === 0)">
+			<div class="emptyBlock emptyBlock-tab" style="height: 40vh"></div>
+		</div>
+	
+</div>
+<app-attachment-modal #attachmentModal></app-attachment-modal>
+<app-history-log #dialog></app-history-log>
