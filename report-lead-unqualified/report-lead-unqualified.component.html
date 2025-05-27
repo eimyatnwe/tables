@@ -1,0 +1,99 @@
+<div class="report-content-filter">
+	<div class="report-search" id="search">
+		<div class="" id="search">
+			<go5-search
+				[category]="'primary'"
+				[(ngModel)]="filter.search"
+				[placeholder]="'common_search' | sPhrase | async"
+				(ngModelChange)="onSearch('search', $event)"
+			>
+			</go5-search>
+		</div>
+	</div>
+	<div *ngIf="!loadingFilter" class="report-content-toolbar">
+		<go5-dropdown-filter
+			[dataSource]="dataSourceFilter"
+			[allowLocaliza]="true"
+			[value]="filter"
+			[maxWidth]="'200px'"
+			[category]="'primary'"
+			[mode]="'overflow-popup'"
+			[size]="'medium'"
+			[popupWidth_px]="276"
+			(changed)="onSelectedFilter($event)"
+			(clear)="onClearAll($event)"
+			(filtering)="onFiltering($event)"
+		>
+		</go5-dropdown-filter>
+	</div>
+	<div *ngIf="!loadingFilter" class="report-additional-filter">
+		<app-date-range
+			[reportType]="'unqualified-lead'"
+			(selected)="setFilter($event)"
+			[value]="dateRang"
+			[filterSize]="'medium'"
+			[maxWidth]="'240px'"
+			[category]="'primary'"
+		></app-date-range>
+	</div>
+	<div *ngIf="loadingFilter" class="item">
+		&nbsp;
+		<ngx-skeleton-loader
+			[theme]="{ height: '20px', width: '90px', margin: '15px 10px 10px 0px' }"
+			count="1"
+		></ngx-skeleton-loader>
+		<ngx-skeleton-loader
+			[theme]="{ height: '20px', width: '90px', margin: '15px 10px 10px 0px' }"
+			count="1"
+		></ngx-skeleton-loader>
+		<ngx-skeleton-loader
+			[theme]="{ height: '20px', width: '90px', margin: '15px 10px 10px 0px' }"
+			count="1"
+		></ngx-skeleton-loader>
+	</div>
+</div>
+
+<div
+	#dataTable
+	(scroll)="onScrolls($event)"
+	class="tb-report custom-scrollbar sales-order-report report-lead-unqualified"
+>
+	<app-table-standard
+		#tableRef
+		[isLoading]="loading"
+		[columns]="columns"
+		[data]="data"
+		class="table-content"
+		[stickyHeaderTop]="'60px'"
+		(sorted)="sortingBy($event)"
+		(reachedBottom)="onScrolls($event)"
+	/>
+
+	<ng-template #customerName let-item let-column="column">
+		<td style="width: 20%; min-width: 180px; max-width: 180px">
+			<span
+				[hoverCard]="item.customerId"
+				(click)="openCustomerDetailDialog(item.customerId)"
+				[type]="'customer'"
+				class="{{ item[column.id] ? 'text-link-primary' : '' }} inline ellipsis-text"
+				>{{ item[column.id] | default: 'str' }}</span
+			>
+		</td>
+	</ng-template>
+
+	<ng-template #interestedIn let-item>
+		<td style="width: 10%; min-width: 180px; max-width: 180px">
+			<p *ngIf="item.interestedIn?.length > 0" class="pl-0 weight-medium font11">
+				<span *ngFor="let topic of item.interestedIn || []" class="label label-stt-primary disabled ellipsis-text">{{
+					getNameTopic(topic)
+				}}</span>
+			</p>
+		</td>
+	</ng-template>
+
+	<ng-template #sourceOfLead let-item>
+		<td style="width: 10%; min-width: 180px">
+			{{ getNameSourceOfLead(item.sourceOfLead) }}
+		</td>
+	</ng-template>
+</div>
