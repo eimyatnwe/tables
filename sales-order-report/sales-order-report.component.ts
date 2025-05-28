@@ -13,13 +13,14 @@ import {
 	input,
 	ChangeDetectorRef,
 	AfterViewInit,
-	ElementRef
+	ElementRef,
+	computed
 } from '@angular/core'
 import { Customer, vwUserInfo } from '@venio/shared/models/venio.model'
 import { ReportFilter, Summary_Column, Summary_Sales_Order } from '@venio/modules/dashboard/shared/report.model'
 import { DatePipe } from '@angular/common'
 import { Router } from '@angular/router'
-import { DateFormat, PhrasePipe, PhraseService } from '@gofive/angular-common'
+import { DateFormat, LANGUAGE_KEY, PhrasePipe, PhraseService } from '@gofive/angular-common'
 import { FieldSettingsModel, FilteringEventArgs } from '@syncfusion/ej2-angular-dropdowns'
 import { FreezeService } from '@syncfusion/ej2-angular-grids'
 import { DataSharingService } from '@venio/core/data-sharing.service'
@@ -28,11 +29,20 @@ import { FilterSharingService } from '@venio/core/filter-sharing.service'
 import { CustomerService } from '@venio/modules/customer/shared/customer.service'
 import { AppConfig } from '@venio/shared/classes/config'
 import { getDate } from '@venio/shared/helper/dateTime'
-import { debounceTime, distinctUntilChanged, Subject, Subscription, switchMap, takeUntil, filter, firstValueFrom } from 'rxjs'
+import {
+	debounceTime,
+	distinctUntilChanged,
+	Subject,
+	Subscription,
+	switchMap,
+	takeUntil,
+	filter,
+	firstValueFrom
+} from 'rxjs'
 import { Permissions } from '@venio/shared/enum/permissions.enum'
 import { Statuses } from '@venio/shared/enum/statuses.enum'
 import { ColumnModel } from '@venio/shared/models/datatable.model'
-import { SearchFilter, StaffFilter } from '../../../admin/shared/team.model'
+import { StaffFilter } from '../../../admin/shared/team.model'
 import { TeamService } from '../../../admin/shared/team.service'
 import { OpportunityManagementService } from '../../../opportunitymanagement/shared/opportunitymanagement.service'
 import { MyDropdownComponent } from '../../../shared/my-dropdown/my-dropdown.component'
@@ -45,8 +55,15 @@ import { ExportFileType } from '@venio/shared/enum/export-file-type.enum'
 import { DateRangeComponent } from './../../../shared/filter/date-range/date-range.component'
 import { HistoryLogComponent } from '../../shared/history-log/history-log.component'
 import { Go5DropdownFilterEventArgs } from '@venio/shared/interfaces/dropdown.interface'
-import {Go5FieldType, Go5TableStandardColumn, Go5TableStandardColumnType, IGo5TableStandardSortEvent, OptionColumnModel} from '@gofive/design-system-table'
+import {
+	Go5FieldType,
+	Go5TableStandardColumn,
+	Go5TableStandardColumnType,
+	IGo5TableStandardSortEvent,
+	OptionColumnModel
+} from '@gofive/design-system-table'
 import { STATUS_NAME } from '@gofive/design-system-badge'
+import { AppConfigService } from '@venio/shared/services/app-config.service'
 
 @Component({
 	selector: 'app-sales-order-report',
@@ -55,14 +72,15 @@ import { STATUS_NAME } from '@gofive/design-system-badge'
 	encapsulation: ViewEncapsulation.None,
 	providers: [FreezeService, DatePipe]
 })
-export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewInit {
+export class SalesOrderReportComponent implements OnInit, OnDestroy, AfterViewInit {
 	private readonly reportPDFService = inject(ReportPDFService)
 	public currentUser: vwUserInfo = new vwUserInfo()
 	public canExportReport: boolean = false
 	@ViewChild('staff')
 	public staffDdl: MyDropdownComponent
-	public isLoading = signal(false)
+	public loading = false
 	public counter = Array
+	private readonly appConfigService = inject(AppConfigService)
 	public filter: ReportFilter = new ReportFilter()
 	public data: Object[] = []
 	public staffs: Object[] = []
@@ -111,13 +129,15 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 	private readonly customBody = viewChild<TemplateRef<HTMLTableCellElement>>('customerName')
 	private readonly orderDetails = viewChild<TemplateRef<HTMLTableCellElement>>('orderDetails')
 	private readonly price = viewChild<TemplateRef<HTMLTableCellElement>>('totalPrice')
+	private readonly payment = viewChild<TemplateRef<HTMLTableCellElement>>('paymentTermTemplate')
+	private readonly remark = viewChild<TemplateRef<HTMLTableCellElement>>('remarkTemplate')
 
-	ngAfterViewInit(): void{
+	ngAfterViewInit(): void {
 		this.columns = [
 			{
 				id: 'saleOrderNo',
 				header: {
-					text: 'common_docs_no',
+					text: 'common_docs_no'
 				},
 				width: '150px',
 				minWidth: '150px',
@@ -132,7 +152,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'subject',
 				header: {
-					text: 'common_case_subject',
+					text: 'common_case_subject'
 				},
 				width: '260px',
 				minWidth: '260px',
@@ -147,7 +167,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'dateCreated',
 				header: {
-					text: 'common_report_created_date',
+					text: 'common_report_created_date'
 				},
 				width: '160px',
 				minWidth: '160px',
@@ -163,7 +183,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'dateOrder',
 				header: {
-					text: 'common_report_order_date',
+					text: 'common_report_order_date'
 				},
 				width: '160px',
 				minWidth: '160px',
@@ -179,7 +199,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'customerName',
 				header: {
-					text: 'common_report_customer_name',
+					text: 'common_report_customer_name'
 				},
 				width: '230px',
 				minWidth: '230px',
@@ -235,8 +255,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'totalPrice',
 				header: {
-					text: 'common_item_price',
-					align: 'start'
+					text: 'common_item_price'
 				},
 				sortable: false,
 				isActive: true,
@@ -340,7 +359,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{
 				id: 'dateApproved',
 				header: {
-					text: 'expense_approved_date',
+					text: 'expense_approved_date'
 				},
 				width: '170px',
 				minWidth: '170px',
@@ -363,10 +382,8 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 				width: '170px',
 				minWidth: '170px',
 				maxWidth: '170px',
-				type: Go5TableStandardColumnType.Text,
-				topic: {
-					fieldName: 'paymentTermDescription'
-				}
+				type: Go5TableStandardColumnType.Custom,
+				bodyTemplate: this.payment()
 			},
 			{
 				id: 'remark',
@@ -378,10 +395,8 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 				width: '183px',
 				minWidth: '183px',
 				maxWidth: '183px',
-				type: Go5TableStandardColumnType.Text,
-				topic: {
-					fieldName: 'remark'
-				}
+				type: Go5TableStandardColumnType.Custom,
+				bodyTemplate: this.remark()
 			},
 			{
 				id: 'refNo',
@@ -459,62 +474,56 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 				}
 			},
 			{
-                id : 'fullName',
-                type: Go5TableStandardColumnType.Staff,
-                header: {
-                    text: 'common_report_staff',
-                },
-                staff: {
-                    fieldName: 'fullName',
-                },
-                image : {
-                    fieldName: 'pictureUrl',
- 
-                    onClick: (item) =>
-                        {
-                            event?.stopPropagation();
-                            this.app.openEmployeeDetailDialog(item.createdByUserId);
-                        }
-                },
-                width : '202px',
-                minWidth: '202px',
-                sortable: true,
-				isActive: true,
-            },
-            {
-                id : 'status',
-                type: Go5TableStandardColumnType.Status,
-                header: {
-                    text: 'common_report_tb_statusname',
-                    align: 'center'
-                },
-                status: {
-                    fieldName: 'status',
-                    type: STATUS_NAME.SalesOrder
-                },
-                width : '170px',
-                sortable: true,
-				isActive: true,
-            }
+				id: 'fullName',
+				type: Go5TableStandardColumnType.Staff,
+				header: {
+					text: 'common_report_staff'
+				},
+				staff: {
+					fieldName: 'fullName'
+				},
+				image: {
+					fieldName: 'pictureUrl',
+
+					onClick: (item) => {
+						event?.stopPropagation()
+						this.app.openEmployeeDetailDialog(item.createdByUserId)
+					}
+				},
+				width: '202px',
+				minWidth: '202px',
+				sortable: true,
+				isActive: true
+			},
+			{
+				id: 'status',
+				type: Go5TableStandardColumnType.Status,
+				header: {
+					text: 'common_report_tb_statusname',
+					align: 'center'
+				},
+				status: {
+					fieldName: 'status',
+					type: STATUS_NAME.SalesOrder
+				},
+				width: '170px',
+				sortable: true,
+				isActive: true
+			}
 		]
 		this.columns = this.columns.map((col, idx) => ({
-            ...col,
-            isActive: true,
-            columnId: idx + 1
-        })) as any[];
-        this.filter.column = this.columns.map(col => col['columnId']);
-           
-        this.setActiveColumns(this.filter.column);
- 
-        this.dataSourceFilter[0].dataSource = this.columns.map(col => ({
-            columnName: col.header.text,
-            columnId: col['columnId'],
-        }))
- 
+			...col,
+			isActive: true,
+			columnId: idx + 1
+		})) as any[]
+		this.filter.column = this.columns.map((col) => col['columnId'])
 
-		if(this.SOTable && this.SOTable.nativeElement){
-			this.SOTable.nativeElement.addEventListener('scroll', this.onScroll.bind(this))
-		}
+		this.setActiveColumns(this.filter.column)
+
+		this.dataSourceFilter[0].dataSource = this.columns.map((col) => ({
+			columnName: col.header.text,
+			columnId: col['columnId']
+		}))
 		this._cdr.detectChanges()
 	}
 	public summary: Summary_Sales_Order = null
@@ -617,7 +626,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			allowFiltering: true,
 			dataSource: []
 		}
-]
+	]
 
 	private readonly phraseService = inject(PhraseService)
 
@@ -652,7 +661,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			this.getDataSummary()
 			this.getData()
 		})
-		this.currentDateFilter$ = this.dataShare.currentSearchReportFilter.subscribe((s) => {
+		this.currentDateFilter$ = this.dataShare.currentSearchReportFilter.subscribe(() => {
 			// this.filter.dateFrom = getDate(s.dateFrom)
 			// this.filter.dateTo = getDate(s.dateTo)
 			this.filterSharingService.setFilterSoReport(this.filter)
@@ -691,13 +700,6 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			.subscribe(({ res, event }) => {
 				event.updateData(res as any)
 			})
-
-		// this.contentScrollElement = document.querySelector('.dashboard-report-page .content')
-		// if (this.contentScrollElement) {
-		// 	this.onScroll = this.onScroll.bind(this)
-		// 	this.contentScrollElement.addEventListener('scroll', this.onScroll)
-		// }
-
 	}
 
 	private processInput(event: FilteringEventArgs): Promise<{
@@ -712,7 +714,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 
 	public loadSetting() {
 		this.currentDateFilter$ = this.dataShare.currentSearchReportFilter.subscribe({
-			next: (s) => {
+			next: () => {
 				// this.filter.dateFrom = getDate(s.dateFrom)
 				// this.filter.dateTo = getDate(s.dateTo)
 				this.filter.orderBy = 'dateCreated desc'
@@ -755,60 +757,32 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		}
 
 		if (this.SOTable && this.SOTable.nativeElement) {
-			this.SOTable.nativeElement.removeEventListener('scroll', this.onScroll);
+			this.SOTable.nativeElement.removeEventListener('scroll', this.onScroll)
 		}
 	}
 	public noMoreData = false
-	// getData() {
-	// 	if (this.loading || !this.filter.dateFrom || !this.filter.dateTo) return
-	// 	this.loading = true
-
-	// 	this.filter.start = this.data?.length || 0
-	// 	this.filter.pageLength = this.pageLength
-	// 	this.data$?.unsubscribe()
-	// 	this.data$ = this.reportService.SalesOrderReport(this.filter).subscribe(
-	// 		(res) => {
-	// 			this.data = this.data.concat(res)
-	// 			this.loading = false
-	// 			this.scrollLoading.set(false)
-	// 			this._cdr.detectChanges()
-	// 			AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: res?.httpStatusCode } })
-	// 		},
-	// 		(err) => {
-	// 			this.data = []
-	// 			this.loading = false
-	// 			this.scrollLoading.set(false)
-	// 			this._cdr.detectChanges()
-	// 			AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: err?.error?.httpStatusCode } })
-	// 		}
-	// 	)
-	// }
-	
 	public async getData() {
-		if (this.isLoading()) return
-		this.isLoading.set(true)
+		if (this.loading) return
+		this.loading = true
 
 		this.filter.start = this.data?.length || 0
 		this.filter.pageLength = this.pageLength
-		console.log('pageLen', this.pageLength)
-
-		try {
-			const res = await firstValueFrom(this.reportService.SalesOrderReport(this.filter))
-			if (res.length < this.pageLength) {
-				this.noMoreData = true
+		this.data$?.unsubscribe()
+		this.data$ = this.reportService.SalesOrderReport(this.filter).subscribe(
+			(res) => {
+				this.data = this.data.concat(res)
+				this.loading = false
+				this.scrollLoading.set(false)
+				this._cdr.detectChanges()
+			},
+			(err) => {
+				this.data = []
+				this.loading = false
+				this.scrollLoading.set(false)
+				this._cdr.detectChanges()
+				AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: err?.error?.httpStatusCode } })
 			}
-			this.data = this.data.concat(res)
-			this.isLoading.set(false)
-			this.scrollLoading.set(false)
-			this._cdr.detectChanges()
-			AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: res?.httpStatusCode } })
-		} catch (err) {
-			console.error(err)
-			this.data = []
-			this.isLoading.set(false)
-			this.scrollLoading.set(false)
-			AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: err?.error?.httpStatusCode } })
-		}
+		)
 	}
 	public async exportData() {
 		this.btnExport = true
@@ -818,12 +792,12 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 			{ column: 'saleOrderDetails.unit', columnName: 'common_product_unit', isActive: true },
 			{ column: 'saleOrderDetails.totalPrice', columnName: 'common_total', isActive: true }
 		]
-	
+
 		let sampleColumns = []
 		this.columns.forEach((col) => {
 			if (!col.isActive) return
 			if (col.id === 'saleOrderDetails') {
-				saleOrderDetailsColumns.forEach(detailCol => {
+				saleOrderDetailsColumns.forEach((detailCol) => {
 					sampleColumns.push({
 						column: detailCol.column,
 						columnName: detailCol.columnName,
@@ -837,8 +811,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 					columnName: col.header.text,
 					isActive: col.isActive
 				}
-	
-	
+
 				sampleColumns.push(mappedColumn)
 			}
 		})
@@ -866,6 +839,21 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		})
 	}
 
+	processHTMLContent(html: string): string {
+		let processed = html.replace(/(&nbsp;){2,}/g, ' ').replace(/&nbsp;/g, ' ')
+		if (processed.includes('<table')) {
+			processed = processed.replace(
+				/<table/g,
+				'<table style="max-width:100%; table-layout:fixed; word-wrap:break-word;"'
+			)
+			processed = processed.replace(
+				/<td/g,
+				'<td style="max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"'
+			)
+		}
+
+		return processed
+	}
 	public onSearchFilterByText(event: any) {
 		const key = event.value
 		const text = event.text || ''
@@ -898,34 +886,27 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 	}
 
 	public onScroll(e) {
-		const element: HTMLElement = e.target
-		if (
-			!this.scrollLoading() &&
-			this.scrollHeight < element?.scrollHeight &&
-			element?.offsetHeight + element?.scrollTop + 300 > element?.scrollHeight
-		) {
-			this.scrollLoading.set(true)
-			this.scrollHeight = element?.scrollHeight
+		if (!this.loading) {
 			this.getData()
 		}
 	}
 
-	public sortingBy(event: IGo5TableStandardSortEvent){
-        this.columns?.forEach((column) => {
-            if(column.id === event.id){
-                column['sortType'] = event.sortOrder || 'asc'
-            }else{
-                column['sortType'] = null
-            }
-        })
- 
-        this.filter.orderBy = `${event.id} ${event.sortOrder?.toLowerCase() || 'asc'}`
-        this.reloadData()
-    }
+	public sortingBy(event: IGo5TableStandardSortEvent) {
+		this.columns?.forEach((column) => {
+			if (column.id === event.id) {
+				column['sortType'] = event.sortOrder || 'asc'
+			} else {
+				column['sortType'] = null
+			}
+		})
+
+		this.filter.orderBy = `${event.id} ${event.sortOrder?.toLowerCase() || 'asc'}`
+		this.reloadData()
+	}
 
 	public onSelectedColumn(value: string[]) {
-        this.columns.forEach((s) => (s.isActive = value.includes(s['columnId'])));
-    }
+		this.columns.forEach((s) => (s.isActive = value.includes(s['columnId'])))
+	}
 
 	public onSelectedTeams(e) {
 		this.filter.teamIds = e?.length > 0 ? e : null
@@ -954,14 +935,13 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		this.summaryObserver$?.unsubscribe()
 		this.summaryObserver$ = this.reportService.SummarySalesOrderReport(this.filter).subscribe(
 			(res) => {
-				this.summary = res
+				this.summary = Object.assign(new Summary_Sales_Order(), res)
 				this.loadingSummary = false
 				this.summaryObserver$?.unsubscribe()
 				this.summaryObserver$?.remove(this.summaryObserver$)
 				this.summaryObserver$ = null
 			},
 			(error) => {
-				console.log(error)
 				this.loadingSummary = false
 				AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: error?.status } })
 			}
@@ -1000,7 +980,6 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 				this.staff$ = null
 			},
 			(err) => {
-				console.log(err)
 				this.setDataSourceFilter('userIds', [])
 				AppConfig.OPEN_FN.next({ key: 'dialog', value: { httpStatusCode: err?.status } })
 			}
@@ -1062,10 +1041,6 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		this.dialog?.openDialog(this.typeExportFile)
 	}
 
-	onReachedBottom() {
-		this.loadMore.emit()
-	}
-
 	public onSearch(key: string, value: any[]) {
 		this.filter[key] = value?.length > 0 ? value : null
 		this.filterSharingService.setFilterSoReport(this.filter)
@@ -1096,30 +1071,30 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 	}
 
 	public setDefaultColumn() {
-        if (this.firstSettingColumn) {
-            this.columns = this.columns?.map((col, index) => {
-                col['columnId'] = index + 1
-                return col
-            })
-            const columnIds = this.columns?.filter((c) => c?.isActive)?.map((col) => col['columnId'])
-            this.defaultColumns = columnIds
-            this.filter.column = columnIds
-            this.setDataSourceFilter('column', this.columns)
-        }
- 
-        if (this.filter?.column?.length) {
-            this.setActiveColumns(this.filter?.column)
-        }
- 
-        this.firstSettingColumn = false
-    }
- 
+		if (this.firstSettingColumn) {
+			this.columns = this.columns?.map((col, index) => {
+				col['columnId'] = index + 1
+				return col
+			})
+			const columnIds = this.columns?.filter((c) => c?.isActive)?.map((col) => col['columnId'])
+			this.defaultColumns = columnIds
+			this.filter.column = columnIds
+			this.setDataSourceFilter('column', this.columns)
+		}
+
+		if (this.filter?.column?.length) {
+			this.setActiveColumns(this.filter?.column)
+		}
+
+		this.firstSettingColumn = false
+	}
+
 	public setActiveColumns(columnIds = []) {
-        this.columns = this.columns?.map((col) => {
-            col.isActive = columnIds.includes(col['columnId'])
-            return col
-        })
-    }
+		this.columns = this.columns?.map((col) => {
+			col.isActive = columnIds.includes(col['columnId'])
+			return col
+		})
+	}
 
 	private setDataSourceFilter(key: string, data: any[]) {
 		const filter = this.dataSourceFilter.find((f) => f.value === key)
@@ -1129,7 +1104,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		this.dataSourceFilter = [...this.dataSourceFilter]
 	}
 
-	public onClearAll(event) {
+	public onClearAll(_event) {
 		this.columns = this.columns?.map((col) => {
 			col.isActive = false
 			return col
@@ -1193,7 +1168,6 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 					}
 				})
 				.catch((error) => {
-					console.log(error)
 					this.customers = []
 
 					if ($event.updateData) {
@@ -1223,7 +1197,7 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 	}
 
 	public translateKeyInText(text: string) {
-		if(typeof text !== 'string'){
+		if (typeof text !== 'string') {
 			return text
 		}
 
@@ -1232,12 +1206,15 @@ export class SalesOrderReportComponent implements OnInit, OnDestroy,AfterViewIni
 		if (match) {
 			match.forEach((key) => {
 				var translated = this.phraseService.translate(key)
-				if(translated){
+				if (translated) {
 					text = text.replace(`{${key}}`, translated)
 				}
 			})
 		}
-	
+
 		return text
 	}
+	isTHLang = computed(() => {
+		return this.appConfigService.getLanguage() === LANGUAGE_KEY.TH
+	})
 }

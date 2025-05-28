@@ -70,47 +70,49 @@
 <div #SOTable class="tb-report sales-order-report summary-header sales-order-report-table">
 	<ng-container>
 		<app-table-standard
-            [data]="data"
-            [columns]="columns"
-            [isLoading]="isLoading()"
-            (sorted)="sortingBy($event)"
-            (selected)="app.openSalesOrderURL($event.saleOrderNo ? $event.saleOrderNo : $event.saleOrderDetails, false, true)"
-            stickyHeaderTop="60px"
-			(reachedBottom)="onReachedBottom()"
-        />
+			[data]="data"
+			[columns]="columns"
+			[isLoading]="loading"
+			(sorted)="sortingBy($event)"
+			(selected)="app.openSalesOrderURL($event.saleOrderNo ? $event.saleOrderNo : $event.saleOrderDetails, false, true)"
+			stickyHeaderTop="60px"
+			(reachedBottom)="onScroll($event)"
+		/>
 		<ng-template #customerName let-item>
-            <td
-                class = "{{ item.customerId ? 'text-link-primary' : '' }}"
-                style="min-width: 230px; max-width: 230px; width: 230px;"
-                (click)="openCustomerDetailDialog(item.customerId, $event)"
-            >
-            <span [hoverCard]="item.customerId" [type]="'customer'">
-                {{ item.customerName || '' }}
-            </span>
-            </td>
-        </ng-template>
+			<td
+				class="{{ item.customerId ? 'text-link-primary' : '' }}"
+				style="min-width: 230px; max-width: 230px; width: 230px"
+				(click)="openCustomerDetailDialog(item.customerId, $event)"
+			>
+				<span [hoverCard]="item.customerId" [type]="'customer'">
+					{{ item.customerName || '' }}
+				</span>
+			</td>
+		</ng-template>
 
 		<ng-template #orderDetails let-item>
-			<td class="col-custom-body order-details-cell" style="min-width: 480px; width: 480px; max-width: 480px;">
+			<td class="col-custom-body order-details-cell" style="min-width: 480px; width: 480px; max-width: 480px">
 				<ng-container *ngIf="item.saleOrderDetails?.length > 0; else emptyState">
-				<!-- First item -->
-						<div>
-							<span>{{ item.saleOrderDetails[0].partName | default: 'str' }} - 
-									{{ item.saleOrderDetails[0].qty || 0 }} {{ item.saleOrderDetails[0].unit }}</span>
+					<!-- First item -->
+					<div>
+						<span
+							>{{ item.saleOrderDetails[0].partName | default: 'str' }} - {{ item.saleOrderDetails[0].qty || 0 }}
+							{{ item.saleOrderDetails[0].unit }}</span
+						>
+					</div>
+					<!-- Additional items -->
+					<ng-container *ngIf="item.saleOrderDetails?.length > 1">
+						<div *ngFor="let order of item.saleOrderDetails.slice(1)">
+							<span>{{ order.partName | default: 'str' }} - {{ order.qty || 0 }} {{ order.unit }}</span>
 						</div>
-				<!-- Additional items -->
-						<ng-container *ngIf="item.saleOrderDetails?.length > 1">
-							<div *ngFor="let order of item.saleOrderDetails.slice(1)">
-								<span>{{ order.partName | default: 'str' }} - {{ order.qty || 0 }} {{ order.unit }}</span>
-							</div>
-						</ng-container>
 					</ng-container>
-				</td>
+				</ng-container>
+			</td>
 		</ng-template>
 
 		<ng-template #totalPrice let-item>
-			<td go5-table-cell class="talign-right" style="width: 160px; min-width: 160px; max-width: 160px;">
-				<ng-template [ngIf]="item.saleOrderDetails?.length > 0"> 
+			<td style="width: 160px; min-width: 160px; max-width: 160px">
+				<ng-template [ngIf]="item.saleOrderDetails?.length > 0">
 					<!-- First item price -->
 					<div>
 						{{
@@ -122,17 +124,47 @@
 					<!-- Additional items prices -->
 					<ng-template [ngIf]="item.saleOrderDetails?.length > 1">
 						<div *ngFor="let order of item.saleOrderDetails.slice(1)">
-							{{
-								order.totalPrice > 0
-									? item?.currency?.currencySymbol + (order.totalPrice | number: '0.2-2')
-									: ''
-							}}
+							{{ order.totalPrice > 0 ? item?.currency?.currencySymbol + (order.totalPrice | number: '0.2-2') : '' }}
 						</div>
 					</ng-template>
 				</ng-template>
 			</td>
 		</ng-template>
-		<div *ngIf="!isLoading && (data === null || data?.length === 0)">
+
+		<ng-template #paymentTermTemplate let-item>
+			<td class="payment-cell" style="min-width: 170px; max-width: 170px">
+				<div
+					[innerHTML]="processHTMLContent(item.paymentTermDescription || ' ')"
+					style="
+						max-height: 3em;
+						overflow: hidden;
+						text-overflow: ellipsis;
+						display: -webkit-box;
+						-webkit-line-clamp: 2;
+						line-clamp: 2;
+						-webkit-box-orient: vertical;
+					"
+				></div>
+			</td>
+		</ng-template>
+
+		<ng-template #remarkTemplate let-item>
+			<td class="remark-cell" style="min-width: 183px; max-width: 183px">
+				<div
+					[innerHTML]="processHTMLContent(item.remark || ' ')"
+					style="
+						max-height: 3em;
+						overflow: hidden;
+						text-overflow: ellipsis;
+						display: -webkit-box;
+						-webkit-line-clamp: 2;
+						line-clamp: 2;
+						-webkit-box-orient: vertical;
+					"
+				></div>
+			</td>
+		</ng-template>
+		<div *ngIf="!loading && (data === null || data?.length === 0)">
 			<div class="emptyBlock emptyBlock-tab" style="height: 40vh"></div>
 		</div>
 	</ng-container>
