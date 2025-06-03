@@ -1,0 +1,1062 @@
+@if (isDoneLoading$ | async) {
+	@if (onboardingCustomer) {
+		<div class="content-layout customer-page default-splitter" [ngClass]="{ 'customer-splitter-collapse': collapse }">
+			<div class="content-parent">
+				<div class="content-column content-left contentLeft">
+					<app-customer-filter
+						[enabledLeadManagement]="canUseLeadManagement"
+						[stateTab]="headerTab"
+						[(tabSelected)]="tabSelected"
+						[(cusLocation)]="cusLocation"
+						[(filter)]="filter"
+						(isSelected)="onCheckSelected($event)"
+						(selectedTab)="onSelectTab($event)"
+						(refresh)="reloadCustomer()"
+						(setFilter)="onSelectedFilter($event.key, $event.value)"
+					/>
+				</div>
+				<div class="content detail-collapse" [ngClass]="{ toggleVisible: collapse }">
+					<div class="collapse-layout">
+						<span (click)="collapse = !collapse"><i class="icon gf-icon-left"></i></span>
+					</div>
+				</div>
+			</div>
+
+			<div class="content-column content-main contentRight" (scroll)="onScrollWithLead($event)">
+				@if (!isPromote) {
+					<div class="customer-content-section">
+						<app-customer-tab-contents
+							[filter]="filter()"
+							(selectMainTab)="onSelectMainTab($event.stateId, $event.index)"
+							[(mainTabSelected)]="mainTabSelected"
+							[(isHoverTab)]="isHoverTab"
+						/>
+						@if (showLeadDashboard()) {
+							<ng-container [ngTemplateOutlet]="dashboardContent"></ng-container>
+						}
+						<app-customer-toolbar-filter
+							[(filter)]="filter"
+							[(isSearchMode)]="isSearchMode"
+							[(selectNewExpandContact)]="selectNewExpandContact"
+							[(isHoverTab)]="isHoverTab"
+							[(mainTabSelected)]="mainTabSelected"
+							(reloadCustomer)="reloadCustomer()"
+							(getSearchData)="onGetSearchDataMode($event)"
+							(searchData)="searchData()"
+							(selectedColumn)="onSelectedColumn($event)"
+						/>
+						<ng-container *ngTemplateOutlet="sectionCommonTable"></ng-container>
+					</div>
+				} @else {
+					<app-promote [module]="'lead'"></app-promote>
+				}
+			</div>
+		</div>
+	}
+
+	@if (canCreateCustomer) {
+		<div class="customer-add pointer" data-testid="icon_customer_create_customer" (click)="createCustomer()">
+			<i class="gf-icon-add-customer"> </i>
+		</div>
+	}
+
+	@if (!onboardingCustomer) {
+		<div class="page-onboard">
+			<app-onboarding [type]="'Customer'" (onClosed)="closeOnboarding()"></app-onboarding>
+		</div>
+	}
+
+	@if (createCustomerOpenned && (canCreateCustomer || canEditCustomer)) {
+		<app-customer-add #createTab (success)="onSuccessEmit($event)" (editsuccess)="onEditChange($event)" />
+	}
+
+	<contact-detail #contactDetail (success)="reloadCustomer()"></contact-detail>
+	<contact-add #contactAdd (contact)="reloadCustomer()"></contact-add>
+}
+
+<ng-template #journeyContent let-data="data">
+	<div class="state-mark" *ngIf="data?.customerState === CustomerState.Lead">
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_lead_state_new' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= LeadState.New ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_lead_state_followup' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= LeadState.Followup ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{
+				'common_customer_lead_state_' +
+					(data?.journey >= LeadState.Unqualified ? LeadState[data?.journey] : LeadState[LeadState.Unqualified])
+					| sPhrase
+					| async
+			}}"
+		>
+			<div
+				class="mark-list {{
+					data?.journey === LeadState.Interested
+						? 'green-mark'
+						: data?.journey === LeadState.Unqualified
+							? 'miss-mark'
+							: ''
+				}}"
+			></div>
+		</div>
+	</div>
+	<div class="state-mark" *ngIf="data?.customerState === CustomerState.Prospect">
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_prospect_state_created' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= ProspectState.Created ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_prospect_state_alreadyhasdeal' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= ProspectState.AlreadyHasDeal ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_prospect_state_followup' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= ProspectState.Followup ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{ 'common_customer_prospect_state_qso' | sPhrase | async }}"
+		>
+			<div class="mark-list {{ data?.journey >= ProspectState.QSO ? 'active-mark' : '' }}"></div>
+		</div>
+		<div
+			class="d-flex"
+			go5-tooltip-placement="top"
+			go5-tooltip="{{
+				'common_customer_prospect_state_' +
+					(data?.journey >= ProspectState.Won ? ProspectState[data?.journey] : ProspectState[ProspectState.Won])
+					| sPhrase
+					| async
+			}}"
+		>
+			<div
+				class="mark-list {{
+					data?.journey === ProspectState.Won || data?.journey === ProspectState.Done
+						? 'green-mark'
+						: data?.journey === ProspectState.Missed
+							? 'miss-mark'
+							: ''
+				}}"
+			></div>
+		</div>
+	</div>
+</ng-template>
+
+<ng-template #dashboardContent>
+	<lead-dashboard (onClickTab)="updateMainTabs($event)" [ownerType]="filter().ownerType ?? 0" />
+</ng-template>
+
+<ng-template #sectionCommonTable>
+	@if (isSearchMode()) {
+		<ng-container [ngTemplateOutlet]="commonTable"></ng-container>
+	} @else {
+		<ng-container [ngTemplateOutlet]="dynamicTable"></ng-container>
+	}
+</ng-template>
+
+<ng-template #dynamicTable>
+	@if (currentLeadTab()) {
+		@if (isLoadingSkeletonLeads) {
+			<ng-container [ngTemplateOutlet]="skeletonBlock"></ng-container>
+		} @else {
+			<ng-container [ngTemplateOutlet]="isContent"></ng-container>
+		}
+	} @else {
+		<ng-container [ngTemplateOutlet]="commonTable"></ng-container>
+	}
+</ng-template>
+
+<ng-template #isContent>
+	@if (tableLeadIsEmpty) {
+		<div class="customer-collapse-layout">
+			@if (customerLeadTableTop.isView) {
+				<div class="customer-collapse-table">
+					<div class="section-collapse pointer" (click)="onToggleCollapse(0)">
+						@if (!cacheCollapse[StatesGroup[this.filter().tabState]][0]) {
+							<i class="gf-icon-right"></i>
+						} @else {
+							<i class="gf-icon-down"></i>
+						}
+						<div class="caption-title">
+							<span>{{ customerLeadTableTop.caption | sPhrase | async }}</span>
+							<go5-badge
+								[label]="customerLeadTableTop.total | number"
+								[size]="'medium'"
+								[category]="'secondary'"
+							></go5-badge>
+						</div>
+					</div>
+					@if (cacheCollapse[StatesGroup[this.filter().tabState]][0]) {
+						<div class="section-table">
+							@if (isSpinnerLeadTop && customerLeadTableTop?.data?.length === 0) {
+								<ng-container [ngTemplateOutlet]="skeletonBlock"></ng-container>
+							} @else {
+								<ng-container [ngTemplateOutlet]="leadTopContentBlock"></ng-container>
+							}
+						</div>
+					}
+				</div>
+			}
+
+			@if (customerLeadTableBottom.isView) {
+				<div class="customer-collapse-table">
+					<div class="section-collapse pointer" (click)="onToggleCollapse(1)">
+						@if (!cacheCollapse[StatesGroup[this.filter().tabState]][1]) {
+							<i class="gf-icon-right"></i>
+						} @else {
+							<i class="gf-icon-down"></i>
+						}
+						<div class="caption-title">
+							<span>{{ customerLeadTableBottom.caption | sPhrase | async }}</span>
+							<go5-badge
+								[label]="customerLeadTableBottom.total | number"
+								[size]="'medium'"
+								[category]="'secondary'"
+							></go5-badge>
+						</div>
+					</div>
+					@if (cacheCollapse[StatesGroup[this.filter().tabState]][1]) {
+						<div class="section-table">
+							@if (isSpinnerLeadBottom && customerLeadTableBottom?.data?.length === 0) {
+								<ng-container [ngTemplateOutlet]="skeletonBlock"></ng-container>
+							} @else {
+								<ng-container [ngTemplateOutlet]="leadBottomContentBlock"></ng-container>
+							}
+						</div>
+					}
+				</div>
+			}
+		</div>
+	} @else {
+		<ng-container [ngTemplateOutlet]="emptyBlock"></ng-container>
+	}
+</ng-template>
+
+<ng-template #leadTopContentBlock>
+	<div class="s-table-responsive fit-content custom-scrollbar">
+		<table class="s-table">
+			<thead>
+				<tr class="s-table-first-row-sticky">
+					<th class="s-table-first-col-sticky">
+						<span class="s-table-columns-text">{{ 'common_name' | sPhrase | async }}</span>
+					</th>
+					<ng-template ngFor let-c [ngForOf]="columns" let-i="index">
+						<ng-template [ngIf]="c.isActive[CustomerState[filter().stateId]] && c.isShow">
+							<th [ngStyle]="{ 'min-width.px': c?.minWidth, width: c?.width, 'text-align': c.align }">
+								<ng-container *ngIf="c?.orderable && !filter()?.search; then sorting; else topicHeader"></ng-container>
+								<ng-template #sorting>
+									<div class="s-table-columns-sort">
+										<span>{{ c.keyName | sPhrase | async }}</span>
+										<s-order-icon
+											class="icon-order"
+											*ngIf="c?.orderable && !filter()?.search"
+											[key]="c?.orderKey"
+											[orderBy]="c?.sortType"
+											(change)="sortingBy(c, $event)"
+										></s-order-icon>
+									</div>
+								</ng-template>
+								<ng-template #topicHeader>
+									<div class="s-table-columns-text">
+										<span>{{ c.keyName | sPhrase | async }}</span>
+									</div>
+								</ng-template>
+							</th>
+						</ng-template>
+					</ng-template>
+					<div class="s-table-space-icon"></div>
+				</tr>
+			</thead>
+			<tbody>
+				<ng-template ngFor let-data [ngForOf]="customerLeadTableTop?.data" let-i="index">
+					<tr
+						class="tr-cursor"
+						(mouseleave)="onMouseLeaveHoverRows(TableCategories.top, i)"
+						(mouseenter)="onMouseEnterHoverRows(TableCategories.top, i)"
+						[ngClass]="{ 'customer-row-option': i === hoverRowCustomerTopIndex }"
+						(click)="openCustomerDetail(data)"
+					>
+						<td class="s-table-first-col-sticky" data-testid="tr_row_customer_customer">
+							<div class="s-tags-label-color">
+								<go5-tags-label-color [dataSource]="tags" [fields]="fieldsTags" [value]="data.tagIds">
+								</go5-tags-label-color>
+							</div>
+							<div class="s-content-section-profile">
+								<div class="s-content-profile-groups">
+									<div class="s-content-profile-name">
+										<span>{{ data.customerName }}</span>
+										<span class="classification-circle" *ngIf="data.classificationName">
+											{{ data.classificationName }}
+										</span>
+									</div>
+									<span *ngIf="data.groupName">{{ data.groupName }}</span>
+								</div>
+								<div>
+									<ng-container
+										[ngTemplateOutlet]="journeyContent"
+										[ngTemplateOutletContext]="{ data: data }"
+									></ng-container>
+								</div>
+							</div>
+						</td>
+						<ng-template ngFor let-c [ngForOf]="columns" let-i="index">
+							<ng-template [ngIf]="c?.isActive[CustomerState[filter().stateId]] && c?.isShow">
+								<td [ngStyle]="{ 'text-align': c.align }">
+									<ng-container
+										[ngTemplateOutlet]="tableContent"
+										[ngTemplateOutletContext]="{ data: data, col: c }"
+									></ng-container>
+								</td>
+							</ng-template>
+						</ng-template>
+						<div class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerTopIndex }">
+							<div
+								*ngIf="i === hoverRowCustomerTopIndex && data?.optionManageCustomer?.length > 0"
+								(click)="onActionIcon($event)"
+							>
+								<go5-dropdown-selection
+									[dataSource]="data?.optionManageCustomer"
+									[mode]="DropdownSelectMode.Button"
+									[allowShowRemove]="false"
+									[allowFiltering]="false"
+									(changed)="onSelectDdlOption($event, data)"
+									data-testid="dropdown_single_customer_option_mange_customer"
+								>
+									<ng-template #toggleTemplate>
+										<i class="gf-icon-vertical-dots font20"></i>
+									</ng-template>
+								</go5-dropdown-selection>
+							</div>
+						</div>
+					</tr>
+					<ng-container *ngIf="isCustomerIdInSelectNewExpandContact(data?.customerId) && data?.contacts?.length > 0">
+						<tr class="tr-contact-row">
+							<th class="s-table-first-col-sticky"></th>
+							<th [attr.colspan]="columns?.length">
+								<div class="row">
+									<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+										<span *ngIf="col.keyName">
+											{{ col.keyName | sPhrase | async }}
+										</span>
+									</div>
+								</div>
+							</th>
+							<div class="contract-edit-icon"></div>
+						</tr>
+						<ng-container *ngFor="let contact of data?.contacts; let j = index">
+							<tr
+								class="tr-contact-row"
+								(mouseleave)="resetHighlightRow()"
+								(mouseenter)="highlightContactRow(j)"
+								[ngClass]="{ 'hover-contact-row': j === hoverRowContactIndex }"
+							>
+								<td class="s-table-first-col-sticky"></td>
+								<td [attr.colspan]="columns?.length" (click)="openContactDetail(contact?.contactId, data?.customerId)">
+									<div class="row">
+										<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+											<ng-container
+												[ngTemplateOutlet]="tableContent"
+												[ngTemplateOutletContext]="{ data: contact, col: col }"
+											></ng-container>
+										</div>
+									</div>
+								</td>
+
+								<div class="contract-edit-icon">
+									<i
+										*ngIf="canEditCustomer"
+										class="gf-icon-venio-edit font22"
+										placement="top"
+										(click)="openEditContact(contact)"
+										[go5-tooltip]="'edit_contact' | sPhrase | async"
+									></i>
+								</div>
+							</tr>
+						</ng-container>
+					</ng-container>
+				</ng-template>
+			</tbody>
+		</table>
+		<div class="loading text-center p-2" *ngIf="isSpinnerLeadTop && customerLeadTableTop?.data?.length > 0">
+			<div class="spinner-border color-primary" role="status">
+				<span class="visually-hidden">Loading...</span>
+			</div>
+		</div>
+	</div>
+</ng-template>
+
+<ng-template #leadBottomContentBlock>
+	<div class="s-table-responsive fit-content custom-scrollbar">
+		<table class="s-table">
+			<thead>
+				<tr class="s-table-first-row-sticky">
+					<th class="s-table-first-col-sticky">
+						<span class="s-table-columns-text">{{ 'common_name' | sPhrase | async }}</span>
+					</th>
+					<ng-template ngFor let-c [ngForOf]="columnsBottom" let-i="index">
+						<ng-template [ngIf]="c.isActive[CustomerState[filter().stateId]] && c.isShow">
+							<th [ngStyle]="{ 'min-width.px': c?.minWidth, width: c?.width, 'text-align': c.align }">
+								<ng-container *ngIf="c?.orderable && !filter()?.search; then sorting; else topicHeader"></ng-container>
+								<ng-template #sorting>
+									<div class="s-table-columns-sort">
+										<span *ngIf="customerLeadTableBottom.caption !== 'lead_pending_follow_up_title'">{{
+											c.keyName | sPhrase | async
+										}}</span>
+										<s-order-icon
+											class="icon-order"
+											*ngIf="c?.orderable && !filter()?.search"
+											[key]="c?.orderKey"
+											[orderBy]="c?.sortType"
+											(change)="sortingBy(c, $event)"
+										></s-order-icon>
+									</div>
+								</ng-template>
+								<ng-template #topicHeader>
+									<div class="s-table-columns-text">
+										<span>{{ c.keyName | sPhrase | async }}</span>
+									</div>
+								</ng-template>
+							</th>
+						</ng-template>
+					</ng-template>
+					<div class="s-table-space-icon"></div>
+				</tr>
+			</thead>
+			<tbody>
+				<ng-template ngFor let-data [ngForOf]="customerLeadTableBottom?.data" let-i="index">
+					<tr
+						class="tr-cursor"
+						(mouseleave)="onMouseLeaveHoverRows(TableCategories.bottom, i)"
+						(mouseenter)="onMouseEnterHoverRows(TableCategories.bottom, i)"
+						[ngClass]="{ 'customer-row-option': i === hoverRowCustomerBottomIndex }"
+						(click)="openCustomerDetail(data)"
+					>
+						<td class="s-table-first-col-sticky" data-testid="tr_row_customer_customer">
+							<div class="s-tags-label-color">
+								<go5-tags-label-color [dataSource]="tags" [fields]="fieldsTags" [value]="data.tagIds">
+								</go5-tags-label-color>
+							</div>
+							<div class="s-content-section-profile">
+								<div class="s-content-profile-groups">
+									<div class="s-content-profile-name">
+										<span>{{ data.customerName }}</span>
+										<span class="classification-circle" *ngIf="data.classificationName">
+											{{ data.classificationName }}
+										</span>
+									</div>
+									<span *ngIf="data.groupName">{{ data.groupName }}</span>
+								</div>
+								<div>
+									<ng-container
+										[ngTemplateOutlet]="journeyContent"
+										[ngTemplateOutletContext]="{ data: data }"
+									></ng-container>
+								</div>
+							</div>
+						</td>
+						<ng-template ngFor let-c [ngForOf]="columnsBottom" let-i="index">
+							<ng-template [ngIf]="c?.isActive[CustomerState[filter().stateId]] && c?.isShow">
+								<td [ngStyle]="{ 'text-align': c.align }">
+									<ng-container
+										[ngTemplateOutlet]="tableContent"
+										[ngTemplateOutletContext]="{ data: data, col: c }"
+									></ng-container>
+								</td>
+							</ng-template>
+						</ng-template>
+						<div class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerBottomIndex }">
+							<div
+								*ngIf="i === hoverRowCustomerBottomIndex && data?.optionManageCustomer?.length > 0"
+								(click)="onActionIcon($event)"
+							>
+								<go5-dropdown-selection
+									[dataSource]="data?.optionManageCustomer"
+									[mode]="DropdownSelectMode.Button"
+									[allowShowRemove]="false"
+									[allowFiltering]="false"
+									(changed)="onSelectDdlOption($event, data)"
+									data-testid="dropdown_single_customer_option_mange_customer"
+								>
+									<ng-template #toggleTemplate>
+										<i class="gf-icon-vertical-dots font20"></i>
+									</ng-template>
+								</go5-dropdown-selection>
+							</div>
+						</div>
+					</tr>
+					<ng-container *ngIf="isCustomerIdInSelectNewExpandContact(data?.customerId) && data?.contacts?.length > 0">
+						<tr class="tr-contact-row">
+							<th class="s-table-first-col-sticky"></th>
+							<th [attr.colspan]="columns?.length">
+								<div class="row">
+									<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+										<span *ngIf="col.keyName">
+											{{ col.keyName | sPhrase | async }}
+										</span>
+									</div>
+								</div>
+							</th>
+							<div class="contract-edit-icon"></div>
+						</tr>
+						<ng-container *ngFor="let contact of data?.contacts; let j = index">
+							<tr
+								class="tr-contact-row"
+								(mouseleave)="resetHighlightRow()"
+								(mouseenter)="highlightContactRow(j)"
+								[ngClass]="{ 'hover-contact-row': j === hoverRowContactIndex }"
+							>
+								<td class="s-table-first-col-sticky"></td>
+								<td [attr.colspan]="columns?.length" (click)="openContactDetail(contact?.contactId, data?.customerId)">
+									<div class="row">
+										<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+											<ng-container
+												[ngTemplateOutlet]="tableContent"
+												[ngTemplateOutletContext]="{ data: contact, col: col }"
+											></ng-container>
+										</div>
+									</div>
+								</td>
+
+								<div class="contract-edit-icon">
+									<i
+										*ngIf="canEditCustomer"
+										class="gf-icon-venio-edit font22"
+										placement="top"
+										(click)="openEditContact(contact)"
+										[go5-tooltip]="'edit_contact' | sPhrase | async"
+									></i>
+								</div>
+							</tr>
+						</ng-container>
+					</ng-container>
+				</ng-template>
+			</tbody>
+		</table>
+		<div class="loading text-center p-2" *ngIf="isSpinnerLeadBottom && customerLeadTableBottom?.data?.length > 0">
+			<div class="spinner-border color-primary" role="status">
+				<span class="visually-hidden">Loading...</span>
+			</div>
+		</div>
+	</div>
+</ng-template>
+
+<ng-template #commonTable>
+	@if (tableIsLoading()) {
+		<ng-container [ngTemplateOutlet]="skeletonBlock"></ng-container>
+	} @else {
+		<ng-container [ngTemplateOutlet]="commonContentBlock"></ng-container>
+	}
+</ng-template>
+
+<ng-template #commonContentBlock>
+	@if (customers()?.length > 0) {
+		<ng-container [ngTemplateOutlet]="customerListBlock"></ng-container>
+	} @else {
+		<ng-container [ngTemplateOutlet]="emptyBlock"></ng-container>
+	}
+</ng-template>
+
+<ng-template #customerListBlock>
+	<div
+		class="s-table-responsive {{ CustomerState.Lead === filter().stateId && 'more-content' }} custom-scrollbar"
+		(scroll)="onScroll($event)"
+	>
+		<table class="s-table">
+			<thead>
+				<tr class="s-table-first-row-sticky">
+					<th class="s-table-first-col-sticky">
+						<span class="s-table-columns-text">{{ 'common_name' | sPhrase | async }}</span>
+					</th>
+					<ng-template ngFor let-c [ngForOf]="columns" let-i="index">
+						<ng-template [ngIf]="c.isActive[CustomerState[filter().stateId]] && c.isShow">
+							<th [ngStyle]="{ 'min-width.px': c?.minWidth, width: c?.width, 'text-align': c.align }">
+								<ng-container *ngIf="c?.orderable && !filter()?.search; then sorting; else topicHeader"></ng-container>
+								<ng-template #sorting>
+									<div class="s-table-columns-sort">
+										<span>{{ c.keyName | sPhrase | async }}</span>
+										<s-order-icon
+											class="icon-order"
+											*ngIf="c?.orderable && !filter()?.search"
+											[key]="c?.orderKey"
+											[orderBy]="c?.sortType"
+											(change)="sortingBy(c, $event)"
+										></s-order-icon>
+									</div>
+								</ng-template>
+								<ng-template #topicHeader>
+									<div class="s-table-columns-text">
+										<span>{{ c.keyName | sPhrase | async }}</span>
+									</div>
+								</ng-template>
+							</th>
+						</ng-template>
+					</ng-template>
+					<div class="s-table-space-icon"></div>
+				</tr>
+			</thead>
+			<tbody>
+				@for (data of customers(); track $index; let i = $index) {
+					<tr
+						class="tr-cursor"
+						(mouseleave)="onMouseLeaveHoverRows(TableCategories.common, i)"
+						(mouseenter)="onMouseEnterHoverRows(TableCategories.common, i)"
+						[ngClass]="{ 'customer-row-option': i === hoverRowCustomerIndex }"
+						(click)="openCustomerDetail(data)"
+					>
+						<td class="s-table-first-col-sticky" data-testid="tr_row_customer_customer">
+							<div class="s-tags-label-color">
+								<go5-tags-label-color [dataSource]="tags" [fields]="fieldsTags" [value]="data.tagIds">
+								</go5-tags-label-color>
+							</div>
+							<div class="s-content-section-profile">
+								<div class="s-content-profile-groups">
+									<div class="s-content-profile-name">
+										<span>{{ data.customerName }}</span>
+										<span class="classification-circle" *ngIf="data.classificationName">
+											{{ data.classificationName }}
+										</span>
+									</div>
+									<span *ngIf="data.groupName">{{ data.groupName }}</span>
+								</div>
+								<div>
+									<ng-container
+										[ngTemplateOutlet]="journeyContent"
+										[ngTemplateOutletContext]="{ data: data }"
+									></ng-container>
+								</div>
+							</div>
+						</td>
+						@for (c of columns; track $index) {
+							@if (c?.isActive[CustomerState[filter().stateId]] && c?.isShow) {
+								<td [ngStyle]="{ 'text-align': c.align }">
+									<ng-container
+										[ngTemplateOutlet]="tableContent"
+										[ngTemplateOutletContext]="{ data: data, col: c }"
+									></ng-container>
+								</td>
+							}
+						}
+
+						<div class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerIndex }">
+							<div
+								*ngIf="i === hoverRowCustomerIndex && data?.optionManageCustomer?.length > 0"
+								(click)="onActionIcon($event)"
+							>
+								<go5-dropdown-selection
+									[dataSource]="data?.optionManageCustomer"
+									[mode]="DropdownSelectMode.Button"
+									[allowShowRemove]="false"
+									[allowFiltering]="false"
+									(changed)="onSelectDdlOption($event, data)"
+									data-testid="dropdown_single_customer_option_mange_customer"
+								>
+									<ng-template #toggleTemplate>
+										<i class="gf-icon-vertical-dots font20"></i>
+									</ng-template>
+								</go5-dropdown-selection>
+							</div>
+						</div>
+					</tr>
+
+					@if (isCustomerIdInSelectNewExpandContact(data?.customerId) && data?.contacts?.length > 0) {
+						<tr class="tr-contact-row">
+							<th class="s-table-first-col-sticky"></th>
+							<th [attr.colspan]="columns?.length">
+								<div class="row">
+									<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+										<span *ngIf="col.keyName">
+											{{ col.keyName | sPhrase | async }}
+										</span>
+									</div>
+								</div>
+							</th>
+							<div class="contract-edit-icon"></div>
+						</tr>
+						<ng-container *ngFor="let contact of data?.contacts; let j = index">
+							<tr
+								class="tr-contact-row"
+								(mouseleave)="resetHighlightRow()"
+								(mouseenter)="highlightContactRow(j)"
+								[ngClass]="{ 'hover-contact-row': j === hoverRowContactIndex }"
+							>
+								<td class="s-table-first-col-sticky"></td>
+								<td [attr.colspan]="columns?.length" (click)="openContactDetail(contact?.contactId, data?.customerId)">
+									<div class="row">
+										<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
+											<ng-container
+												[ngTemplateOutlet]="tableContent"
+												[ngTemplateOutletContext]="{ data: contact, col: col }"
+											></ng-container>
+										</div>
+									</div>
+								</td>
+
+								<div class="contract-edit-icon">
+									<i
+										*ngIf="canEditCustomer"
+										class="gf-icon-venio-edit"
+										(click)="openEditContact(contact)"
+										[go5-tooltip]="'edit_contact' | sPhrase | async"
+									></i>
+								</div>
+							</tr>
+						</ng-container>
+					}
+				}
+				<ng-template ngFor let-data [ngForOf]="customers()" let-i="index"> </ng-template>
+			</tbody>
+		</table>
+		@if (isLoadingCustomers()) {
+			<div class="loading text-center p-2">
+				<div class="spinner-border color-primary" role="status">
+					<span class="visually-hidden">Loading...</span>
+				</div>
+			</div>
+		}
+	</div>
+</ng-template>
+
+<ng-template #tableContent let-data="data" let-c="col">
+	@if (c?.columnName === 'contract') {
+		<div class="customer-field-contract">
+			@if (data?.phone || data?.mobile || data?.email) {
+				@if (data?.phone) {
+					<div>
+						<div class="circle-contract" (click)="toTel(data?.phone, $event)" [go5-tooltip]="data?.phone | sMarked">
+							<i class="gf-icon-contract-phone"></i>
+						</div>
+					</div>
+				}
+				@if (data?.mobile) {
+					<div>
+						<div class="circle-contract" (click)="toTel(data?.mobile, $event)" [go5-tooltip]="data?.mobile | sMarked">
+							<i class="gf-icon-contract-mobile-phone"></i>
+						</div>
+					</div>
+				}
+				@if (data?.email) {
+					<div>
+						<div class="circle-contract" (click)="toEmail(data?.email, $event)" [go5-tooltip]="data?.email | sMarked">
+							<i class="gf-icon-email-emconnect"></i>
+						</div>
+					</div>
+				}
+			} @else {
+				<span>-</span>
+			}
+		</div>
+	} @else if (c?.columnName === 'dealStages') {
+		@if (data?.dealStages?.length > 0) {
+			<div>
+				@for (stage of data?.dealStages; track $index) {
+					<go5-tag-item
+						[data]="stage"
+						[size]="'small'"
+						[disabled]="true"
+						[fields]="dealStageFields"
+						[category]="'custom'"
+					/>
+				}
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'interests') {
+		@if (data?.interests?.length > 0) {
+			<div>
+				@for (interest of data?.interests; track $index) {
+					<go5-tag-item [data]="interest" [size]="'small'" [disabled]="true" [fields]="topicInterestFields" />
+				}
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'owners') {
+		@if (data?.owners?.length > 0) {
+			<div class="customer-field-owners">
+				@for (user of data.owners; track $index) {
+					<span class="owners-overflow">
+						<go5-avatar
+							[sProfileHoverCard]="[user]"
+							[src]="user.pictureUrl"
+							type="picUser"
+							size="medium"
+							[isLazy]="true"
+						/>
+					</span>
+				}
+				@if (data?.hideOwners?.length > 0) {
+					<div
+						[sProfileHoverCard]="data?.hideOwners"
+						class="d-flex owners-overflow plus-avatar"
+						style="cursor: pointer; position: relative"
+					>
+						<span class="go5-text-title"> +{{ data.hideOwners.length }} </span>
+					</div>
+				}
+			</div>
+		}
+	} @else if (c?.columnName === 'activityStats') {
+		@if (data?.activityStats?.length > 0) {
+			<div class="customer-field-icon-activity">
+				@for (item of data?.activityStats; track $index) {
+					@if (item?.count > 0) {
+						<span class="activity-group">
+							@if (item.type === 'Plan') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.Activity)"
+									[go5-tooltip]="'common_activity' | sPhrase | async"
+									class="gf-icon-activity pointer"
+								></i>
+							}
+							@if (item.type === 'Case') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.Case)"
+									[go5-tooltip]="'common_case' | sPhrase | async"
+									class="gf-icon-case-fit pointer"
+								></i>
+							}
+							@if (item.type === 'Deal') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.Deal)"
+									[go5-tooltip]="'common_deal' | sPhrase | async"
+									class="gf-icon-deal-management pointer"
+								></i>
+							}
+							@if (item.type === 'SalesOrder') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.OrderTarget)"
+									[go5-tooltip]="'common_sale_order' | sPhrase | async"
+									class="gf-icon-sales-order-fit pointer"
+								></i>
+							}
+							@if (item.type === 'Conversation') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.Conversation)"
+									[go5-tooltip]="'common_conversation' | sPhrase | async"
+									class="gf-icon-conversation pointer"
+								></i>
+							}
+							{{ item.count }}
+						</span>
+					}
+				}
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'thisYearStats') {
+		@if (data?.thisYearStats?.length > 0) {
+			<div class="customer-field-icon-activity">
+				@for (item of data?.thisYearStats; track $index) {
+					@if (item?.count > 0) {
+						<span class="activity-group">
+							@if (item.type === 'Activity') {
+								<i
+									(click)="selectCustomerTab(CustomerTab.Activity)"
+									[go5-tooltip]="'common_activity' | sPhrase | async"
+									class="gf-icon-activity pointer"
+								></i>
+							}
+							@if (item.type === 'Conversation') {
+								<i
+									s
+									(click)="selectCustomerTab(CustomerTab.Conversation)"
+									[go5-tooltip]="'common_conversation' | sPhrase | async"
+									class="gf-icon-conversation pointer"
+								></i>
+							}
+							<span class="activity-count">{{ item.count }}</span>
+						</span>
+					}
+				}
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'dateFollowUp') {
+		@if (data?.dateFollowUp) {
+			<div class="customer-field-date-followup">
+				<span [ngClass]="{ overdue: data.isOverDue }">
+					{{ toDate(data?.dateFollowUp) | sGlobalTimeAgo: CurrentTimes : isShortFormat : CurrentLang }}
+				</span>
+				<span class="followup-datelong">{{ data.dateFollowUp | date: 'dd/MM/yyyy HH:mm' }}</span>
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'dateLatestConversation') {
+		@if (data?.dateLatestConversation) {
+			<div class="customer-field-date-followup">
+				<span [ngClass]="{ overdue: data.isOverDue }">
+					{{ toDate(data?.dateLatestConversation) | sGlobalTimeAgo: CurrentTimes : isShortFormat : CurrentLang }}
+				</span>
+				<span class="followup-datelong">{{ data.dateLatestConversation | date: 'dd/MM/yyyy HH:mm' }}</span>
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'dateAcquired') {
+		@if (data?.dateAcquired) {
+			<span>{{ data.dateAcquired | sDurationTime: 'month' | async }}</span>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'dateLatestUpdated') {
+		@if (data?.dateLatestUpdated) {
+			<span>
+				{{ toDate(data?.dateLatestUpdated) | sGlobalTimeAgo: CurrentTimes : isShortFormat : CurrentLang }}
+			</span>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'dateOfBirth') {
+		@if (data?.dateOfBirth) {
+			<div class="customer-field-dateofbirth">
+				<span class="dateofbirth">{{ data.dateOfBirth | sDate: DateFormat.dateLong | async }}</span>
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	} @else if (c?.columnName === 'status') {
+		<go5-status
+			[type]="STATUS_NAME.Customer"
+			[statusId]="data.status || 1"
+			[label]="'customer_status_' + CustomerStatuses[data.status] | sPhrase | async"
+		>
+		</go5-status>
+		<div class="collapse-toggle-container" (click)="$event.stopPropagation()">
+			@if (data?.contacts?.length > 0) {
+				<div
+					class="collapse-toggle"
+					(click)="expandContact(data?.customerId)"
+					[ngClass]="{
+						open: selectExpandContact === data?.customerId,
+					}"
+				>
+					<span>
+						<i class="gfc-down-mini"></i>
+					</span>
+				</div>
+			}
+		</div>
+	} @else {
+		@if (data[c?.columnName]) {
+			<div class="customer-field-other">
+				<span class="other-info">
+					{{ data[c?.columnName] }}
+				</span>
+			</div>
+		} @else {
+			<span>-</span>
+		}
+	}
+</ng-template>
+
+<ng-template #skeletonBlock>
+	<div class="s-table-responsive">
+		<table class="s-table">
+			<thead>
+				<tr style="border-bottom: 1px solid #ddd">
+					<th>
+						<ngx-skeleton-loader
+							count="1"
+							[theme]="{
+								width: '100px',
+								height: '15px',
+								margin: '0px',
+							}"
+						>
+						</ngx-skeleton-loader>
+					</th>
+					@for (col of columns; track $index) {
+						<th [ngStyle]="{ 'min-width.px': col?.minWidth, width: col?.width, 'text-align': col.align }">
+							<ngx-skeleton-loader
+								count="1"
+								[theme]="{
+									width: '100px',
+									height: '15px',
+									margin: '0px',
+									textAlign: col?.align,
+								}"
+							/>
+						</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				@for (col of counter(skeletonRows()); track $index) {
+					<tr style="border-bottom: 1px solid #ddd">
+						<td>
+							<div class="media">
+								<div class="media-body">
+									<div>
+										<ngx-skeleton-loader
+											count="1"
+											[theme]="{
+												width: '280px',
+												height: '15px',
+												margin: '0px',
+											}"
+										/>
+									</div>
+									<div>
+										<ngx-skeleton-loader
+											count="1"
+											[theme]="{
+												width: '120px',
+												height: '15px',
+												margin: '0px',
+											}"
+										/>
+									</div>
+								</div>
+							</div>
+						</td>
+						@for (col of columns; track $index) {
+							<td>
+								<ngx-skeleton-loader
+									count="1"
+									[theme]="{
+										width: col?.minWidth,
+										height: '15px',
+										margin: '0px',
+										textAlign: col?.align,
+									}"
+								/>
+							</td>
+						}
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+</ng-template>
+
+<ng-template #emptyBlock>
+	<div class="customer-empty-stage">
+		<img [sImgLazyload]="emptyStateImgUrl | sAssets" class="empty-img" />
+		<span class="empty-desc">{{ 'common_customer_no_customer' | sPhrase | async }}</span>
+	</div>
+</ng-template>
