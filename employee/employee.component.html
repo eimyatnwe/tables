@@ -1,0 +1,424 @@
+<ng-template [ngIf]="isDoneLoading$ | async">
+	<div class="sales-management-report-page custom-style-element">
+		<div class="employee-info-header" id="employee-info-header">
+			<div class="employee-info-left" id="employee-info-left">
+				<span class="employee-info-text-header">
+					<p class="go5-text-color-12 go5-text-header-4 go5-ellipsis">
+						{{
+							currentSupervisorId == 0 && permissionAccessAllEmployee?.allowGrant
+								? ('common_all' | sPhrase | async)
+								: CurrentLang === Language.TH
+									? currentSupervisor?.fullName
+									: currentSupervisor?.fullName_EN
+						}}
+					</p>
+					<span class="header-filter-take-role">
+						<go5-dropdown-selection
+							#dropdownSupervisor
+							data-testid="dropdown-single-takeRole"
+							[mode]="'single'"
+							[dataSource]="supervisorModel"
+							[fields]="CurrentLang === Language.TH ? fieldSupervisor : fieldSupervisor_EN"
+							popupWidth_px="350"
+							[value]="currentSupervisorId"
+							(selected)="onSelectedSupervisor($event)"
+							(filtering)="onFilteringSupervisor($event)"
+							(close)="onDropdownSupervisorClosed()"
+						>
+							<ng-template #toggleTemplate>
+								<em class="gf-icon-down" [ngClass]="{ open: dropdownSupervisor.isOpen }"></em>
+							</ng-template>
+						</go5-dropdown-selection>
+					</span>
+				</span>
+			</div>
+			<div class="attendance-summary" *ngIf="!isSummaryLoading && summaryReport" id="employee-group-summary-report">
+				@if (summaryReport.notFollowedUpLeads > 0) {
+					<div class="summary-box" id="summary-box-not-followed-up">
+						<div class="go5-text-header-4">{{ summaryReport.notFollowedUpLeads | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_lead_not_followed' | sPhrase | async }}</div>
+					</div>
+				}
+				@if (summaryReport.overdueLeads > 0) {
+					<div class="summary-box" id="summary-box-overdue-lead">
+						<div class="go5-text-header-4">{{ summaryReport.overdueLeads | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_lead_overdue' | sPhrase | async }}</div>
+					</div>
+				}
+
+				@if (summaryReport.noDealProspects > 0) {
+					<div class="summary-box" id="summary-box-prospect-pending-deal">
+						<div class="go5-text-header-4">{{ summaryReport.noDealProspects | number }}</div>
+						<div class="go5-text-small summary-text">
+							{{ 'employee_sum_tab_prospect_pending_deal' | sPhrase | async }}
+						</div>
+					</div>
+				}
+
+				@if (summaryReport.overdueCustomerActivities > 0) {
+					<div class="summary-box" id="summary-box-activity-overdue">
+						<div class="go5-text-header-4">{{ summaryReport.overdueCustomerActivities | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_activity_overdue' | sPhrase | async }}</div>
+					</div>
+				}
+
+				@if (summaryReport.overdueTasks > 0) {
+					<div class="summary-box" id="summary-box-task-overdue">
+						<div class="go5-text-header-4">{{ summaryReport.overdueTasks | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_task_overdue' | sPhrase | async }}</div>
+					</div>
+				}
+
+				@if (summaryReport.overdueDeals > 0) {
+					<div class="summary-box" id="summary-box-deal-overdue">
+						<div class="go5-text-header-4">{{ summaryReport.overdueDeals | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_deal_overdue' | sPhrase | async }}</div>
+					</div>
+				}
+
+				@if (summaryReport.overdueQuotations > 0) {
+					<div class="summary-box" id="summary-box-quotation-overdue">
+						<div class="go5-text-header-4">{{ summaryReport.overdueQuotations | number }}</div>
+						<div class="go5-text-small summary-text">{{ 'employee_sum_tab_quotation_overdue' | sPhrase | async }}</div>
+					</div>
+				}
+			</div>
+		</div>
+
+		<div class="employee-group-filter" id="employee-group-filter">
+			<div class="employee-search-filter-left" id="employee-filter-search">
+				<go5-search
+					[category]="'primary'"
+					[placeholder]="'common_search' | sPhrase | async"
+					[(ngModel)]="reportFilter.searchText"
+					(input)="onSearch($event)"
+					(clear)="onSearch($event)"
+					data-testid="input_search_employee"
+					[size]="'large'"
+					style="width: 100%"
+				>
+				</go5-search>
+			</div>
+			<div class="employee-sub-filter-right" id="employee-sub-filter">
+				<go5-dropdown-filter
+					[dataSource]="dataSourceFilter"
+					[allowLocaliza]="true"
+					[value]="filter"
+					[maxWidth]="'150px'"
+					[category]="'primary'"
+					[mode]="'overflow-popup'"
+					[size]="'large'"
+					[popupWidth_px]="276"
+					(changed)="onSelectedFilter($event)"
+					(clear)="onClearAll($event)"
+					(filtering)="onFilteringDropdown($event)"
+					data-testid="input_sub_filter_employee"
+				>
+				</go5-dropdown-filter>
+			</div>
+		</div>
+
+		@if (isInitialLoading || isEmployeeLoading()) {
+			<div class="mt-3" id="employee-skeleton-loader">
+				<ngx-skeleton-loader count="1" [theme]="{ height: '44px' }" animation="progress-dark"></ngx-skeleton-loader>
+				<div style="display: grid; gap: 20px; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr">
+					@for (e of counter(78); let i = $index; track i) {
+						<ngx-skeleton-loader count="1" [theme]="{ height: '24px' }"></ngx-skeleton-loader>
+					}
+				</div>
+			</div>
+		}
+		@if (!isInitialLoading && employeeList.length === 0 && !isEmployeeLoading()) {
+			<div class="empty-stage" id="employee-empty-stage">
+				<img [src]="'assets/images/empty-stage/default.png' | sAssets" class="empty-img" />
+				<span class="go5-text-text go5-text-color-8 mt-3">{{ 'common_no_data' | sPhrase | async }}</span>
+			</div>
+		}
+
+		@if (employeeList?.length > 0) {
+			<div class="employee-table-info custom-table-style-element" id="employee-table-info">
+				<go5-table-elementary-freeze
+					[columns]="columns"
+					[dataSources]="employeeList"
+					[frozenColumn]="frozenCols"
+					[isShowBorderFrozen]="true"
+					[top]="'60px'"
+					[height]="60"
+					[isWindowScroll]="false"
+				>
+					<!-- Frozen Header Template -->
+					<ng-template go5TableTemplate="header" let-columns let-isFreeze="freeze">
+						@if (isFreeze) {
+							<th class="employee-table-frozen-th" id="employee-table-frozen-header">
+								<div class="employee-content-th {{ frozenCols[0].cssClass }}">
+									<span class="go5-text-body-bold">
+										{{ frozenCols[0].header | sPhrase | async }}
+									</span>
+									<em
+										class="sort-active"
+										[ngClass]="{
+											'gf-icon-sort': orderSorting[frozenCols[0].orderValue] === '',
+											'gf-icon-asc-order': orderSorting[frozenCols[0].orderValue] === 'ORDER',
+											'gf-icon-desc-order': orderSorting[frozenCols[0].orderValue] === 'ORDER DESC',
+										}"
+										(click)="onSorting(frozenCols[0].orderValue)"
+									></em>
+								</div>
+							</th>
+						} @else {
+							<!--Unfrozen Main Header Row -->
+							<tr>
+								@for (c of columns; track $index) {
+									@if (!c.children) {
+										<th
+											rowspan="2"
+											[style.width]="c.width"
+											class="employee-table-main-th {{ c.cssClass }}"
+											id="employee-table-main-header"
+										>
+											<div class="employee-content-th {{ c.cssClass }}">
+												<span
+													class="go5-ellipsis go5-text-body-bold"
+													[go5-tooltip-mode]="'trigger'"
+													[go5-tooltip]="c.header | sPhrase | async"
+													[go5-tooltip-visible]="c.isShowTooltip"
+													(mouseenter)="onTooltip($event, c.width, c)"
+													(mouseleave)="onTooltip($event, '0px', c)"
+												>
+													{{ c.header | sPhrase | async }}
+												</span>
+												<em
+													class="sort-active"
+													[ngClass]="{
+														'gf-icon-sort': orderSorting[c.orderValue] === '',
+														'gf-icon-asc-order': orderSorting[c.orderValue] === 'ORDER',
+														'gf-icon-desc-order': orderSorting[c.orderValue] === 'ORDER DESC',
+													}"
+													(click)="onSorting(c.orderValue)"
+												></em>
+											</div>
+										</th>
+									} @else {
+										<th
+											[colSpan]="c.children.length"
+											class="employee-table-ongoing-th"
+											id="employee-table-ongoing-header"
+										>
+											<span class="main-header-text">
+												{{ c.header | sPhrase | async }}
+											</span>
+										</th>
+									}
+								}
+							</tr>
+
+							<!-- Sub Header Row -->
+							<tr>
+								@for (c of columns; track $index) {
+									@if (c.children) {
+										@for (child of c.children; track $index) {
+											<th
+												[style.width]="child.width"
+												class="employee-table-sub-th {{ child.cssClass }} {{
+													child.field === 'inProgressQuotations' || child.field === 'inProgressSalesOrders'
+														? 'employee-table-sub-th-price'
+														: ''
+												}}"
+												id="employee-table-sub-header"
+											>
+												<div class="employee-content-th {{ child.cssClass }}">
+													<span class="go5-ellipsis sub-th-text">
+														{{ child.header | sPhrase | async }}
+													</span>
+													<em
+														class="sort-active"
+														[ngClass]="{
+															'gf-icon-sort': orderSorting[child.orderValue] === '',
+															'gf-icon-asc-order': orderSorting[child.orderValue] === 'ORDER',
+															'gf-icon-desc-order': orderSorting[child.orderValue] === 'ORDER DESC',
+														}"
+														(click)="onSorting(child.orderValue)"
+													></em>
+												</div>
+											</th>
+										}
+									}
+								}
+							</tr>
+						}
+					</ng-template>
+
+					<!-- Body Template -->
+					<ng-template
+						go5TableTemplate="body"
+						let-rowData
+						let-columns="columns"
+						let-isFreeze="freeze"
+						let-rowIndex="rowIndex"
+					>
+						@if (isFreeze) {
+							<td
+								class="employee-table-frozen-td"
+								id="employee-table-frozen-td"
+								(click)="openEmployeeDetailDialog(rowData.userId)"
+								(mouseenter)="activeHoverIndex(rowIndex)"
+								(mouseleave)="activeHoverIndex(null)"
+								[ngClass]="{ 'employee-table-row-hover': rowIndex === tableRowIndex }"
+							>
+								<span>
+									<go5-avatar-information
+										[title]="
+											CurrentLang === Language.TH
+												? rowData[frozenCols[0].field]
+												: (rowData[frozenCols[0].field + 'En'] ?? rowData[frozenCols[0].field])
+										"
+										[detail]="rowData.role"
+										[src]="rowData.pictureUrl"
+										type="picUser"
+										size="medium"
+										width="40px"
+										data-testid="avatar_employee"
+									></go5-avatar-information>
+								</span>
+							</td>
+						} @else {
+							<div
+								class="employee-table-unfrozen-row"
+								id="employee-table-unfrozen-row"
+								(click)="openEmployeeDetailDialog(rowData.userId)"
+								(mouseenter)="activeHoverIndex(rowIndex)"
+								(mouseleave)="activeHoverIndex(null)"
+								[ngClass]="{ 'employee-table-row-hover': rowIndex === tableRowIndex }"
+							>
+								@for (c of columns; track $index) {
+									@if (!c.children) {
+										<td
+											class="employee-table-unfrozen-td {{ c.cssClass }}"
+											[style.width]="c.width"
+											id="employee-table-unfrozen-td"
+										>
+											<div class="employee-content-td">
+												@if (c.warningField && rowData[c.warningField] > 0) {
+													<div class="td-noti-icon">
+														<i
+															class="gf-icon-warning f-16"
+															[ngClass]="'icon-warning-error-mss'"
+															[go5-tooltip-mode]="'hover'"
+															[go5-tooltip]="
+																c.field === 'totalLeads'
+																	? (rowData[c.warningField] | number) +
+																		' ' +
+																		('common_not_followed_up' | sPhrase | async)
+																	: (rowData[c.warningField] | number) + ' ' + ('common_pending_deal' | sPhrase | async)
+															"
+															tooltipPosition="top"
+															data-testid="icon_warning_employee"
+														></i>
+													</div>
+												}
+												@if (c.overdueField && rowData[c.overdueField] > 0) {
+													<div class="td-noti-icon">
+														<i
+															class="gf-icon-exclamation-mark f-16"
+															[ngClass]="'icon-warning-mss'"
+															[go5-tooltip-mode]="'hover'"
+															[go5-tooltip]="
+																(rowData[c.overdueField] | number) + ' ' + ('common_overdue' | sPhrase | async)
+															"
+															tooltipPosition="top"
+															data-testid="icon_overdue_employee"
+														></i>
+													</div>
+												}
+												<span
+													class="go5-ellipsis"
+													[go5-tooltip-mode]="'trigger'"
+													[go5-tooltip]="rowData[c.field] | number"
+													[go5-tooltip-visible]="c.tooltipStates?.[rowIndex]"
+													(mouseenter)="onTooltipBody($event, c.width, c, rowData[c.field], rowIndex)"
+													(mouseleave)="onTooltipBody($event, '0px', c, '', rowIndex)"
+												>
+													{{ rowData[c.field] !== 0 ? (rowData[c.field] | number) : '' }}
+												</span>
+											</div>
+										</td>
+									} @else {
+										@for (child of c.children; track $index) {
+											<td
+												class="employee-table-sub-td {{ child.cssClass }} {{
+													child.field === 'inProgressQuotations' || child.field === 'inProgressSalesOrders'
+														? 'employee-table-sub-td-price'
+														: ''
+												}}"
+												[style.width]="child.width"
+												[style.height]="child.height"
+												id="employee-table-unfrozen-td"
+											>
+												<div
+													class="employee-content-td {{
+														child.field === 'inProgressQuotations' || child.field === 'inProgressSalesOrders'
+															? 'justify-content-end'
+															: ''
+													}}"
+												>
+													@if (child.overdueField && rowData[child.overdueField] > 0) {
+														<div class="td-noti-icon">
+															<i
+																class="gf-icon-exclamation-mark f-16"
+																[ngClass]="'icon-warning-mss'"
+																[go5-tooltip-mode]="'hover'"
+																[go5-tooltip]="
+																	child.field === 'inProgressQuotations'
+																		? (rowData[child.overdueField] | number) +
+																			': ' +
+																			(rowData[child.valueOverdueField] | sShortNumber | sCurrency) +
+																			' ' +
+																			('common_overdue' | sPhrase | async)
+																		: (rowData[child.overdueField] | number) +
+																			' ' +
+																			('common_overdue' | sPhrase | async)
+																"
+																tooltipPosition="top"
+																data-testid="icon_overdue_employee"
+															></i>
+														</div>
+													}
+													<span
+														class="go5-ellipsis {{
+															child.field === 'inProgressQuotations' || child.field === 'inProgressSalesOrders'
+																? 'go5-text-body-strong'
+																: ''
+														}}"
+														[go5-tooltip-mode]="'trigger'"
+														[go5-tooltip]="rowData[child.field] | number"
+														[go5-tooltip-visible]="child.tooltipStates?.[rowIndex]"
+														(mouseenter)="onTooltipBody($event, child.width, child, rowData[child.field], rowIndex)"
+														(mouseleave)="onTooltipBody($event, '0px', child, '', rowIndex)"
+													>
+														{{ rowData[child.field] !== 0 ? (rowData[child.field] | number) : '' }}
+													</span>
+												</div>
+
+												@if (child.field === 'inProgressQuotations' || child.field === 'inProgressSalesOrders') {
+													<span class="employee-td-price-text">
+														{{ rowData[child.value] !== 0 ? (rowData[child.value] | sShortNumber | sCurrency) : '' }}
+													</span>
+												}
+											</td>
+										}
+									}
+								}
+							</div>
+						}
+					</ng-template>
+				</go5-table-elementary-freeze>
+			</div>
+		}
+
+		@if (isScrollLoading()) {
+			<div class="onLoading" id="employee-loading-spinner">
+				<div class="spinner-border color-primary"></div>
+			</div>
+		}
+	</div>
+</ng-template>
