@@ -8,6 +8,7 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+		background-color: var(--go5-bg-primary);
 
 		width: 100%;
 		min-height: 100%;
@@ -208,7 +209,7 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 			}
 
 			th {
-				background-color: #ececf1 !important;
+				background-color: var(--go5-background-default) !important;
 				padding: 12px 16px;
 				height: 44px;
 
@@ -262,12 +263,12 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 					opacity: 1;
 					position: sticky;
 					right: 0;
-					background-color: rgba(246, 246, 248);
+					background-color: rgba(from var(--go5-text-color-2) r g b / 0.6);
 				}
 
 				tr,
 				td {
-					background-color: rgba(246, 246, 248);
+					background-color: rgba(from var(--go5-text-color-2) r g b);
 				}
 			}
 
@@ -305,7 +306,7 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 		.s-table-first-col-sticky {
 			min-width: 280px;
 			width: 280px;
-			background-color: var(--go5-table-body);
+			// background-color: var(--go5-table-body);
 
 			&::after {
 				content: '';
@@ -334,6 +335,7 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 		}
 
 		.s-table-space-icon {
+			background-color: var(--go5-bg-primary);
 			text-align: center;
 			width: 52px;
 			min-width: 52px;
@@ -527,7 +529,8 @@ $default-shadow-light: rgba(0, 0, 0, 0.2) 0 0 5px -2px;
 
 		.content-left {
 			height: -webkit-fill-available !important;
-			background-color: white;
+			background-color: var(--go5-bg-primary);
+			color: var(--go5-text-color-12);
 			max-width: 360px !important;
 			width: 360px;
 			border-right: 0px !important;
@@ -1180,3 +1183,33 @@ $multi-select-hover: #e6e6e6;
 		}
 	}
 }
+.s-table-responsive {
+	container-name: management;
+	container-type: inline-size;
+}
+
+@container management (min-width: 1140px) {
+		.go5-table-elementary-table-header .go5-table-elementary-table-header-frozen-wrapper,
+		.go5-table-elementary-table-wrapper .go5-table-elementary-table-body-frozen-wrapper {
+			flex: 1;
+		}
+		.go5-table-elementary-table-header .go5-table-elementary-table-header-unfrozen-wrapper,
+		.go5-table-elementary-table-wrapper .go5-table-elementary-table-body-unfrozen-wrapper {
+			flex: none;
+		}
+
+		.go5-table-elementary-table-header .go5-table-elementary-table-header-frozen-wrapper,
+		.go5-table-elementary-table-header .go5-table-elementary-table-header-unfrozen-wrapper {
+			width: unset !important;
+		}
+	}
+
+	@container management (max-width: 1139px) {
+		.go5-table-elementary-table-header .go5-table-elementary-table-header-frozen-wrapper,
+		.go5-table-elementary-table-wrapper .go5-table-elementary-table-body-frozen-wrapper {
+			flex: none;
+			width: 280px !important;
+			min-width: unset !important;
+		}
+	}
+

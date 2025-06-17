@@ -105,6 +105,18 @@ export class CustomerFilterModel extends FilterDataSource {
 	isActiveOwner?: any
 }
 
+interface GetCustomerData {
+	source: 'getCustomer',
+	scrollElement?: HTMLElement,
+}
+
+interface GetDataSeachMode {
+	source: 'getDataSeachMode'
+	filter: CustomerManagementFilterModel
+}
+
+type FetchData = GetCustomerData | GetDataSeachMode
+
 @Component({
 	selector: 'customer',
 	templateUrl: './customer.component.html',
@@ -229,12 +241,14 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 	public cacheCollapse: any = {}
 
 	skeletonRows = signal(10)
+
 	stateTabs = signal<CustomerStateTab[]>([])
 	filter = signal(new CustomerManagementFilterModel())
 
 	private scriptElement: HTMLScriptElement
-	private getCustomerSubject = new Subject<{ element?: HTMLElement }>()
-	private getDataSearchModeSubject = new Subject<CustomerManagementFilterModel>()
+
+	private fetchDataSubject = new Subject<GetCustomerData | GetDataSeachMode>()
+
 	private readonly debounceTimeMs = 300
 
 	get CurrentTimes() {
@@ -335,7 +349,138 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 
 	private readonly renderer = inject(Renderer2)
 	private readonly customerTabMinisizeService = inject(CustomerTabMinisizeService)
+	public frozenCols = [
+		{
+			columnId: 1,
+			columnName: 'customerName',
+			keyName: 'common_name',
+			align: 'left',
+			isActive: { All: false, Lead: false, Prospect: false, Customer: false },
+			condition: [],
+			width: '280px',
+			minWidth: '280px',
+			maxWidth: '280px'
+		}
+	]
 
+	public cols = [
+		{
+			columnId: 1,
+			columnName: 'contract',
+			keyName: 'lead_column_contact',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '132',
+			minWidth: '132',
+			condition: [],
+		},
+		{
+			columnId: 2,
+			columnName: 'dealStages',
+			keyName: 'common_deal_stage_dealstage',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: false, Prospect: true, Customer: true },
+			width: '140.77',
+			minWidth: '140.77',
+			condition: [],
+		},
+		{
+			columnId: 3,
+			columnName: 'interests',
+			keyName: 'common_customer_interestedin',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '290',
+			minWidth: '290',
+			condition: [],
+		},
+		{
+			columnId: 4,
+			columnName: 'owners',
+			keyName: 'common_customer_owner',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '200',
+			minWidth: '200',
+			condition: [],
+		},
+		{
+			columnId: 5,
+			columnName: 'activityStats',
+			keyName: 'common_customer_ongoing',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '244.65',
+			minWidth: '244.65',
+			condition: [],
+		},
+		{
+			columnId: 6,
+			columnName: 'thisYearStats',
+			keyName: 'common_customer_this_year',
+			align: 'left',
+			isShow: true,
+			isActive: { All: true, Lead: false, Prospect: true, Customer: true },
+			width: '136.81',
+			minWidth: '136.81',
+			condition: [],
+		},
+		{
+			columnId: 7,
+			columnName: 'dateFollowUp',
+			orderKey: 'dateFollowUp',
+			keyName: 'common_customer_next_followup',
+			align: 'left',
+			isShow: true,
+			orderable: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '149.73',
+			minWidth: '149.73',
+			condition: [],
+		},
+		{
+			columnId: 8,
+			columnName: 'dateAcquired',
+			orderKey: 'dateAcquired',
+			keyName: 'customer_age',
+			align: 'left',
+			isShow: true,
+			orderable: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '140',
+			minWidth: '140',
+			condition: [],
+		},
+		{
+			columnId: 9,
+			columnName: 'dateLatestUpdated',
+			orderKey: 'dateLatestUpdated',
+			keyName: 'common_customer_last_updated',
+			align: 'left',
+			isShow: true,
+			orderable: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '137',
+			minWidth: '137',
+			condition: [],
+		},
+		{
+			columnId: 10,
+			columnName: 'status',
+			keyName: 'common_status',
+			align: 'center',
+			isShow: true,
+			isActive: { All: true, Lead: true, Prospect: true, Customer: true },
+			width: '90',
+			minWidth: '90',
+			condition: [],
+		}
+	]
 	constructor(
 		public elementRef: ElementRef,
 		public phraseService: PhraseService,
@@ -380,42 +525,49 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		//table skeleton
 		this.calculateSkeletonRows()
 
-		this.getCustomerSubject
+		this.fetchDataSubject
 			.pipe(
 				tap(() => this.isLoadingCustomers.set(true)),
 				takeUntil(this.destroy$),
 				debounceTime(this.debounceTimeMs),
-				switchMap(({ element }) => this.getDataV2(element)),
-				catchError((err) => {
-					console.error(err)
-					return of(null)
-				}),
-			)
-			.subscribe((res) => {
-				if (res) {
-					this.updateCustomerData(res)
-				}
-				this.isLoadingCustomers.set(false)
-			})
+				switchMap(async (dataSubject): 
+					Promise<[FetchData, CustomerManagementViewModel[] | undefined]> => {
+					if (dataSubject.source === 'getCustomer') {
+						return [
+							dataSubject,
+							await this.getDataV2(dataSubject.scrollElement)
+						]
+					} else if (dataSubject.source === 'getDataSeachMode') {
+						return [
+							dataSubject,
+							await this.getDataSearchMode(dataSubject.filter)
+						]
+					} 
 
-		this.getDataSearchModeSubject
-			.pipe(
-				tap(() => this.isLoadingCustomers.set(true)),
-				takeUntil(this.destroy$),
-				debounceTime(this.debounceTimeMs),
-				switchMap((filter) => this.getDataSearchMode(filter)),
+					throw new Error('bug: getDataSearchMode found invalid source')
+				}),
 				catchError((err) => {
 					console.error(err)
 					return of(null)
 				}),
 			)
-			.subscribe((data) => {
-				if (this.filter()?.search) {
-					this.selectNewExpandContact = this.initialContract(data)
+			.subscribe({
+				next: async ([fetchData, result]) => {
+					if (fetchData.source === 'getCustomer') {
+						if (result) {
+							this.updateCustomerData(result)
+						}
+
+						this.isLoadingCustomers.set(false)
+					} else if (fetchData.source === 'getDataSeachMode') {
+						if (this.filter()?.search) {
+							this.selectNewExpandContact = this.initialContract(result)
+						}
+						this.customers.set(result)
+						this.setDealStageAndFilterContact(result)
+						this.isLoadingCustomers.set(false)
+					}
 				}
-				this.customers.set(data)
-				this.setDealStageAndFilterContact(data)
-				this.isLoadingCustomers.set(false)
 			})
 	}
 
@@ -450,7 +602,9 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 	}
 
 	ngAfterViewInit(): void {
-		this.getCustomerSubject.next({})
+		this.fetchDataSubject.next({
+			source: 'getCustomer'
+		})
 	}
 
 	ngOnDestroy(): void {
@@ -528,10 +682,12 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 	}
 
 	onGetSearchDataMode(filter: CustomerManagementFilterModel): void {
-		this.getDataSearchModeSubject.next(filter)
+		this.fetchDataSubject.next({
+			source: 'getDataSeachMode', filter
+		})
 	}
 
-	async getDataSearchMode(filter: CustomerManagementFilterModel): Promise<CustomerManagementViewModel[]> {
+	async getDataSearchMode(filter: CustomerManagementFilterModel): Promise<CustomerManagementViewModel[] | undefined> {
 		try {
 			let res = await this.CustomerManagementService.getCustomerManagement(filter)
 			res = res?.map((item) => {
@@ -554,7 +710,7 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		this.setDealStageAndFilterContact(data)
 	}
 
-	private async getDataV2(element?: HTMLElement): Promise<CustomerManagementViewModel[] | void> {
+	private async getDataV2(element?: HTMLElement): Promise<CustomerManagementViewModel[] | undefined> {
 		this.setGetDataFilter()
 
 		const bypass = { ownerType: this.filter().ownerType, stateId: this.filter()?.stateId }
@@ -1003,7 +1159,9 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		this.restoreData() //searchmode default
 		this.resetLeadData()
 		this.getTags()
-		this.getCustomerSubject.next({})
+		this.fetchDataSubject.next({
+			source: 'getCustomer'
+		})
 	}
 
 	public resetLeadData() {
@@ -1115,7 +1273,9 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		this.customers.set([])
 		this.scrollHeight = window.innerHeight - 185
 		this.getTags()
-		this.getCustomerSubject.next({})
+		this.fetchDataSubject.next({
+			source: 'getCustomer',
+		})
 	}
 
 	public onSelectOwnerType() {
@@ -1328,7 +1488,9 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		) {
 			this.scrollHeight = element.scrollHeight
 			if (this.customers()?.length > 0) {
-				this.getCustomerSubject.next({})
+				this.fetchDataSubject.next({
+					source: 'getCustomer',
+				})
 			}
 		}
 		this._cdr.detectChanges()
@@ -1454,7 +1616,9 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 		this.isLoadingMoreTop = true
 		this.isLoadingMoreBottom = true
 		this.resetLeadData()
-		this.getCustomerSubject.next({})
+		this.fetchDataSubject.next({
+			source: 'getCustomer',
+		})
 	}
 
 	onToggleCollapse(i: number): void {
@@ -1517,7 +1681,10 @@ export class CustomerComponent extends BaseComponent implements OnInit, OnChange
 						this.isLoadingMoreBottom = true
 					}
 				}
-				this.getCustomerSubject.next({ element })
+				this.fetchDataSubject.next({ 
+					source: 'getCustomer', 
+					scrollElement: element
+				})
 			}
 		}
 	}

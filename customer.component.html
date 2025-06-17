@@ -285,7 +285,7 @@
 							</th>
 						</ng-template>
 					</ng-template>
-					<div class="s-table-space-icon"></div>
+					<th class="s-table-space-icon"></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -398,7 +398,10 @@
 				</ng-template>
 			</tbody>
 		</table>
-		<div class="loading text-center p-2" *ngIf="isSpinnerLeadTop && customerLeadTableTop?.data?.length > 0">
+		<div
+			class="loading text-center p-2 go5-bg-primary"
+			*ngIf="isSpinnerLeadTop && customerLeadTableTop?.data?.length > 0"
+		>
 			<div class="spinner-border color-primary" role="status">
 				<span class="visually-hidden">Loading...</span>
 			</div>
@@ -440,7 +443,7 @@
 							</th>
 						</ng-template>
 					</ng-template>
-					<div class="s-table-space-icon"></div>
+					<th class="s-table-space-icon"></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -485,7 +488,7 @@
 								</td>
 							</ng-template>
 						</ng-template>
-						<div class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerBottomIndex }">
+						<th class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerBottomIndex }">
 							<div
 								*ngIf="i === hoverRowCustomerBottomIndex && data?.optionManageCustomer?.length > 0"
 								(click)="onActionIcon($event)"
@@ -503,7 +506,7 @@
 									</ng-template>
 								</go5-dropdown-selection>
 							</div>
-						</div>
+						</th>
 					</tr>
 					<ng-container *ngIf="isCustomerIdInSelectNewExpandContact(data?.customerId) && data?.contacts?.length > 0">
 						<tr class="tr-contact-row">
@@ -580,153 +583,85 @@
 <ng-template #customerListBlock>
 	<div
 		class="s-table-responsive {{ CustomerState.Lead === filter().stateId && 'more-content' }} custom-scrollbar"
-		(scroll)="onScroll($event)"
 	>
-		<table class="s-table">
-			<thead>
-				<tr class="s-table-first-row-sticky">
-					<th class="s-table-first-col-sticky">
-						<span class="s-table-columns-text">{{ 'common_name' | sPhrase | async }}</span>
-					</th>
-					<ng-template ngFor let-c [ngForOf]="columns" let-i="index">
-						<ng-template [ngIf]="c.isActive[CustomerState[filter().stateId]] && c.isShow">
-							<th [ngStyle]="{ 'min-width.px': c?.minWidth, width: c?.width, 'text-align': c.align }">
-								<ng-container *ngIf="c?.orderable && !filter()?.search; then sorting; else topicHeader"></ng-container>
-								<ng-template #sorting>
-									<div class="s-table-columns-sort">
-										<span>{{ c.keyName | sPhrase | async }}</span>
-										<s-order-icon
-											class="icon-order"
-											*ngIf="c?.orderable && !filter()?.search"
-											[key]="c?.orderKey"
-											[orderBy]="c?.sortType"
-											(change)="sortingBy(c, $event)"
-										></s-order-icon>
-									</div>
-								</ng-template>
-								<ng-template #topicHeader>
-									<div class="s-table-columns-text">
-										<span>{{ c.keyName | sPhrase | async }}</span>
-									</div>
-								</ng-template>
-							</th>
-						</ng-template>
-					</ng-template>
-					<div class="s-table-space-icon"></div>
-				</tr>
-			</thead>
-			<tbody>
-				@for (data of customers(); track $index; let i = $index) {
-					<tr
-						class="tr-cursor"
-						(mouseleave)="onMouseLeaveHoverRows(TableCategories.common, i)"
-						(mouseenter)="onMouseEnterHoverRows(TableCategories.common, i)"
-						[ngClass]="{ 'customer-row-option': i === hoverRowCustomerIndex }"
-						(click)="openCustomerDetail(data)"
-					>
-						<td class="s-table-first-col-sticky" data-testid="tr_row_customer_customer">
-							<div class="s-tags-label-color">
-								<go5-tags-label-color [dataSource]="tags" [fields]="fieldsTags" [value]="data.tagIds">
-								</go5-tags-label-color>
-							</div>
-							<div class="s-content-section-profile">
-								<div class="s-content-profile-groups">
-									<div class="s-content-profile-name">
-										<span>{{ data.customerName }}</span>
-										<span class="classification-circle" *ngIf="data.classificationName">
-											{{ data.classificationName }}
-										</span>
-									</div>
-									<span *ngIf="data.groupName">{{ data.groupName }}</span>
-								</div>
-								<div>
-									<ng-container
-										[ngTemplateOutlet]="journeyContent"
-										[ngTemplateOutletContext]="{ data: data }"
-									></ng-container>
-								</div>
-							</div>
-						</td>
-						@for (c of columns; track $index) {
-							@if (c?.isActive[CustomerState[filter().stateId]] && c?.isShow) {
-								<td [ngStyle]="{ 'text-align': c.align }">
-									<ng-container
-										[ngTemplateOutlet]="tableContent"
-										[ngTemplateOutletContext]="{ data: data, col: c }"
-									></ng-container>
-								</td>
-							}
-						}
-
-						<div class="s-table-space-icon" [ngClass]="{ 'action-icon': i === hoverRowCustomerIndex }">
-							<div
-								*ngIf="i === hoverRowCustomerIndex && data?.optionManageCustomer?.length > 0"
-								(click)="onActionIcon($event)"
-							>
-								<go5-dropdown-selection
-									[dataSource]="data?.optionManageCustomer"
-									[mode]="DropdownSelectMode.Button"
-									[allowShowRemove]="false"
-									[allowFiltering]="false"
-									(changed)="onSelectDdlOption($event, data)"
-									data-testid="dropdown_single_customer_option_mange_customer"
-								>
-									<ng-template #toggleTemplate>
-										<i class="gf-icon-vertical-dots font20"></i>
-									</ng-template>
-								</go5-dropdown-selection>
-							</div>
+		<go5-table-elementary-freeze
+			[columns]="columns"
+			[frozenColumn]="frozenCols"
+			[isShowBorderFrozen]="true"
+			[top]="'60px'"
+			[height]="60"
+			[isWindowScroll]="false"
+			[dataSources]="customers()"
+			(onScroll)="onScroll($event)"
+			>
+			<ng-template go5TableTemplate="header" let-columns let-isFreeze="freeze">
+				@if (isFreeze) {
+					<th>
+						<div [ngStyle]="{ 'width': frozenCols[0].width, 'min-width': frozenCols[0].minWidth }" class="s-table-first-col-sticky">
+							<span>{{ frozenCols[0].keyName | sPhrase | async }}</span>
 						</div>
-					</tr>
-
-					@if (isCustomerIdInSelectNewExpandContact(data?.customerId) && data?.contacts?.length > 0) {
-						<tr class="tr-contact-row">
-							<th class="s-table-first-col-sticky"></th>
-							<th [attr.colspan]="columns?.length">
-								<div class="row">
-									<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
-										<span *ngIf="col.keyName">
-											{{ col.keyName | sPhrase | async }}
-										</span>
-									</div>
-								</div>
-							</th>
-							<div class="contract-edit-icon"></div>
-						</tr>
-						<ng-container *ngFor="let contact of data?.contacts; let j = index">
-							<tr
-								class="tr-contact-row"
-								(mouseleave)="resetHighlightRow()"
-								(mouseenter)="highlightContactRow(j)"
-								[ngClass]="{ 'hover-contact-row': j === hoverRowContactIndex }"
-							>
-								<td class="s-table-first-col-sticky"></td>
-								<td [attr.colspan]="columns?.length" (click)="openContactDetail(contact?.contactId, data?.customerId)">
-									<div class="row">
-										<div *ngFor="let col of columnsContract" class="col" [ngStyle]="{ 'min-width.px': col.width }">
-											<ng-container
-												[ngTemplateOutlet]="tableContent"
-												[ngTemplateOutletContext]="{ data: contact, col: col }"
-											></ng-container>
-										</div>
-									</div>
-								</td>
-
-								<div class="contract-edit-icon">
-									<i
-										*ngIf="canEditCustomer"
-										class="gf-icon-venio-edit"
-										(click)="openEditContact(contact)"
-										[go5-tooltip]="'edit_contact' | sPhrase | async"
-									></i>
-								</div>
-							</tr>
-						</ng-container>
-					}
+					</th>
+				} @else {
+					   <tr>
+                        @for (c of cols; track $index) {
+                            <th [ngStyle]="{ 'min-width.px': c?.minWidth, width: c?.width, 'text-align': c.align }">
+                                <div class="s-table-columns-sort">
+                                    <span>{{ c.keyName | sPhrase | async }}</span>
+                                </div>
+                            </th>
+                        }
+                    </tr>
 				}
-				<ng-template ngFor let-data [ngForOf]="customers()" let-i="index"> </ng-template>
-			</tbody>
-		</table>
+			</ng-template>
+			<ng-template 
+				go5TableTemplate="body"
+				let-rowData
+				let-columns="columns"
+				let-isFreeze="freeze"
+				let-rowIndex="rowIndex"
+			>
+				@if (isFreeze) {
+					<!-- <td>
+						<span>{{ rowData.customerName }}</span>
+					</td> -->
+					   <td class="s-table-first-col-sticky" data-testid="tr_row_customer_customer">
+                            <div class="s-tags-label-color">
+                                <go5-tags-label-color [dataSource]="tags" [fields]="fieldsTags" [value]="rowData.tagIds">
+                                </go5-tags-label-color>
+                            </div>
+                            <div class="s-content-section-profile">
+                                <div class="s-content-profile-groups">
+                                    <div class="s-content-profile-name">
+                                        <span>{{ rowData.customerName }}</span>
+                                        <span class="classification-circle" *ngIf="rowData.classificationName">
+                                            {{ rowData.classificationName }}
+                                        </span>
+                                    </div>
+                                    <span *ngIf="rowData.groupName">{{ rowData.groupName }}</span>
+                                </div>
+                                <div>
+                                    <ng-container
+                                        [ngTemplateOutlet]="journeyContent"
+                                        [ngTemplateOutletContext]="{ data: rowData }"
+                                    ></ng-container>
+                                </div>
+                            </div>
+                        </td>
+				} @else {
+					<tr>
+						@for (c of cols; track $index) {
+							<td class="customer-unfrozen-td" [ngStyle]="{ 'min-width.px': c.minWidth, 'width.px': c.width }">
+								  <ng-container
+                                        [ngTemplateOutlet]="tableContent"
+                                        [ngTemplateOutletContext]="{ data: rowData, col: c }"
+                                    ></ng-container>
+							</td>
+							}
+						</tr>
+				}
+			</ng-template>
+
+		</go5-table-elementary-freeze>
 		@if (isLoadingCustomers()) {
 			<div class="loading text-center p-2">
 				<div class="spinner-border color-primary" role="status">
